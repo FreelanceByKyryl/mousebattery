@@ -1,6 +1,5 @@
 using System.Drawing;
 using System.Drawing.Imaging;
-using System.Globalization;
 using System.Runtime.InteropServices;
 
 namespace MouseCharge.Services;
@@ -8,109 +7,57 @@ namespace MouseCharge.Services;
 internal static class TrayBatteryIcon
 {
     private const int Size = 16;
-    private const int DigitTop = 4;
+    private const int GaugeLeft = 3;
+    private const int GaugeWidth = 9;
 
-    // The M4's thumb recess, offset buttons and perforated palm rest are visible at 16 px.
+    // A wide shell, scroll wheel and thumb recess survive at the native tray size.
     private static readonly string[] Mouse =
     [
-        " ## ",
-        " #+#",
-        "#+# ",
-        "#:# ",
-        "#.# ",
-        " b# ",
-        " b# ",
-        " #o ",
-        "#o# ",
-        "#.# ",
-        "#o# ",
-        "#o##",
-        "####",
-        " ## "
+        "   #####   ",
+        "  ##...##  ",
+        " #...+...# ",
+        " #...+...# ",
+        " #...:...# ",
+        " #.......# ",
+        "  #.o.o..# ",
+        "  #..o...# ",
+        " #.o.o.o.# ",
+        "  #.....#  ",
+        "   #####   "
     ];
 
-    // The percent sign sits a pixel closer to the last zero at 100%.
-    private static readonly string[] CompactOne = ["#", "#", "#", "#", "#", "#", "#"];
-    private static readonly string[] Percent = ["#.#", "..#", ".#.", ".#.", ".#.", ".#.", "#.#"];
+    private static readonly Color Outline = Color.FromArgb(97, 137, 255);
+    private static readonly Color Shell = Color.FromArgb(30, 48, 81);
+    private static readonly Color Wheel = Color.FromArgb(184, 208, 255);
+    private static readonly Color Detail = Color.FromArgb(13, 24, 46);
+    private static readonly Color Track = Color.FromArgb(25, 35, 52);
+    private static readonly Color GaugeEdge = Color.FromArgb(108, 132, 173);
+    private static readonly Color Green = Color.FromArgb(93, 224, 153);
+    private static readonly Color LowEdge = Color.FromArgb(208, 94, 106);
+    private static readonly Color Red = Color.FromArgb(255, 122, 136);
+    private static readonly Color NeutralEdge = Color.FromArgb(127, 140, 160);
+    private static readonly Color Gray = Color.FromArgb(181, 194, 213);
 
-    private static readonly string[][] Digits =
-    [
-        [".#.", "#.#", "#.#", "#.#", "#.#", "#.#", ".#."],
-        [".#", "##", ".#", ".#", ".#", ".#", ".#"],
-        ["##.", "..#", "..#", ".#.", "#..", "#..", "###"],
-        ["##.", "..#", "..#", ".##", "..#", "..#", "##."],
-        ["#.#", "#.#", "#.#", "###", "..#", "..#", "..#"],
-        ["###", "#..", "#..", "##.", "..#", "..#", "##."],
-        [".##", "#..", "#..", "##.", "#.#", "#.#", ".#."],
-        ["###", "..#", "..#", ".#.", ".#.", "#..", "#.."],
-        [".#.", "#.#", "#.#", ".#.", "#.#", "#.#", ".#."],
-        [".#.", "#.#", "#.#", ".##", "..#", "..#", "##."]
-    ];
-
-    private static readonly Color Surface = Color.FromArgb(21, 31, 43);
-    private static readonly Color Outline = Color.FromArgb(155, 215, 198);
-    private static readonly Color Shell = Color.FromArgb(101, 169, 157);
-    private static readonly Color Buttons = Color.FromArgb(99, 146, 160);
-    private static readonly Color Wheel = Color.FromArgb(209, 241, 234);
-    private static readonly Color Green = Color.FromArgb(132, 233, 183);
-    private static readonly Color Gray = Color.FromArgb(213, 221, 232);
-
-    /// <summary>The caller owns the returned icon. A null result uses the default mouse icon.</summary>
-    public static Icon? Create(int? percent, bool approximate, bool stale)
+    /// <summary>The caller owns the returned icon. A missing reading draws an empty, neutral gauge.</summary>
+    public static Icon? Create(int? percent, bool stale)
     {
-        if (percent is not (>= 0 and <= 100))
-        {
-            return null;
-        }
+        bool available = percent is >= 0 and <= 100;
+        int level = available ? percent.GetValueOrDefault() : 0;
+        bool neutral = !available || stale;
+        bool low = !neutral && level < 20;
+        var edge = neutral ? NeutralEdge : low ? LowEdge : GaugeEdge;
+        var ink = neutral ? Gray : low ? Red : Green;
 
-        bool full = percent == 100;
-        string[][] glyphs = full
-            ? [CompactOne, Digits[0], Digits[0]]
-            : percent.Value.ToString(CultureInfo.InvariantCulture).Select(digit => Digits[digit - '0']).ToArray();
-        int percentLeft = Size - Percent[0].Length;
-        int left = percentLeft - glyphs.Sum(glyph => glyph[0].Length + 1) + (full ? 1 : 0);
-        int fieldLeft = full ? 4 : 5;
-        int fieldWidth = Size - fieldLeft;
-        var ink = stale ? Gray : Green;
+        // The tooltip labels approximation. The icon only shows the coarse reading.
+        int filled = (int)Math.Round(level * GaugeWidth / 100.0, MidpointRounding.AwayFromZero);
         using var bitmap = new Bitmap(Size, Size, PixelFormat.Format32bppArgb);
-        using (var graphics = Graphics.FromImage(bitmap))
-        using (var background = new SolidBrush(Surface))
-        {
-            graphics.FillRectangle(background, fieldLeft + 1, 3, fieldWidth - 2, approximate ? 11 : 9);
-            graphics.FillRectangle(background, fieldLeft, DigitTop, fieldWidth, 7);
-        }
-
-        for (var y = 0; y < Mouse.Length; y++)
-        {
-            for (var x = 0; x < Mouse[y].Length; x++)
-            {
-                var color = Mouse[y][x] switch
-                {
-                    '#' => Outline,
-                    '+' => Wheel,
-                    'b' => Buttons,
-                    '.' => Shell,
-                    ':' or 'o' => Surface,
-                    _ => Color.Empty
-                };
-                if (!color.IsEmpty)
-                    bitmap.SetPixel(x, y + 1, color);
-            }
-        }
-
-        foreach (var glyph in glyphs)
-        {
-            DrawInk(bitmap, glyph, left, DigitTop, ink);
-            left += glyph[0].Length + 1;
-        }
-        DrawInk(bitmap, Percent, percentLeft, DigitTop, ink);
-
-        if (approximate)
-        {
-            DrawInk(bitmap, [".##.#", "#.##."], 9, 12, ink);
-        }
+        DrawMouse(bitmap);
+        DrawGauge(bitmap, filled, edge, ink);
 
         var handle = bitmap.GetHicon();
+        if (handle == IntPtr.Zero)
+            return null;
+
         try
         {
             using var icon = Icon.FromHandle(handle);
@@ -122,17 +69,44 @@ internal static class TrayBatteryIcon
         }
     }
 
-    private static void DrawInk(Bitmap bitmap, string[] mask, int left, int top, Color ink)
+    private static void DrawMouse(Bitmap bitmap)
     {
-        for (var y = 0; y < mask.Length; y++)
+        for (int y = 0; y < Mouse.Length; y++)
         {
-            for (var x = 0; x < mask[y].Length; x++)
+            for (int x = 0; x < Mouse[y].Length; x++)
             {
-                if (mask[y][x] == '#')
+                var color = Mouse[y][x] switch
                 {
-                    bitmap.SetPixel(left + x, top + y, ink);
-                }
+                    '#' => Outline,
+                    '+' => Wheel,
+                    '.' => Shell,
+                    ':' or 'o' => Detail,
+                    _ => Color.Empty
+                };
+                if (!color.IsEmpty)
+                    bitmap.SetPixel(x + 2, y, color);
             }
+        }
+    }
+
+    private static void DrawGauge(Bitmap bitmap, int filled, Color edge, Color ink)
+    {
+        for (int column = 0; column < GaugeWidth; column++)
+        {
+            int x = GaugeLeft + column;
+            var interior = column < filled ? ink : Track;
+            bitmap.SetPixel(x, 12, edge);
+            bitmap.SetPixel(x, 13, interior);
+            bitmap.SetPixel(x, 14, interior);
+            bitmap.SetPixel(x, 15, edge);
+        }
+
+        // The rounded case and its terminal leave a transparent row above the gauge.
+        for (int y = 13; y <= 14; y++)
+        {
+            bitmap.SetPixel(GaugeLeft - 1, y, edge);
+            bitmap.SetPixel(GaugeLeft + GaugeWidth, y, edge);
+            bitmap.SetPixel(GaugeLeft + GaugeWidth + 1, y, edge);
         }
     }
 

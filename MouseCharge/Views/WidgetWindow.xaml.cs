@@ -13,15 +13,17 @@ namespace MouseCharge.Views;
 
 public partial class WidgetWindow : Window
 {
-    private const double DefaultWidth = 300;
-    private const double DefaultHeight = 139;
+    private const double DefaultWidth = 245;
+    private const double DefaultHeight = 103;
     private const double EdgeInset = 18;
 
     private static readonly Palette Dark = new(
-        Brush("#F21B1F26"), Brush("#73E3A7"), Brush("#A9B3C2"));
+        Brush("#F2161D2B"), Brush("#83BAFF"), Brush("#35304E"), Brush("#A2CFFF"),
+        Brush("#75E8A5"), Brush("#FF777D"), Brush("#AFBDD0"));
 
     private static readonly Palette Light = new(
-        Brush("#F8F8FAFD"), Brush("#206D45"), Brush("#515D6D"));
+        Brush("#F8F7FAFF"), Brush("#5489C8"), Brush("#E8E6FB"), Brush("#3262A0"),
+        Brush("#217043"), Brush("#AF3044"), Brush("#52647D"));
 
     private static readonly Brush TransparentSurface = Brush("#01000000");
     private readonly Effect _shadow;
@@ -108,13 +110,29 @@ public partial class WidgetWindow : Window
         AutomationProperties.SetHelpText(LevelText, string.Join(" · ", details));
 
         ApplyReadingColor();
-        if (levelChanged && IsVisible && SystemParameters.ClientAreaAnimation)
+        if (levelChanged)
         {
-            var animation = new DoubleAnimation(0.72, 1, TimeSpan.FromMilliseconds(200))
+            var previousFill = GaugeScale.ScaleX;
+            var currentFill = Math.Clamp(percentage.GetValueOrDefault() / 100.0, 0, 1);
+            GaugeScale.ScaleX = currentFill;
+            if (IsVisible && SystemParameters.ClientAreaAnimation)
             {
-                FillBehavior = FillBehavior.Stop
-            };
-            LevelText.BeginAnimation(OpacityProperty, animation);
+                GaugeScale.BeginAnimation(ScaleTransform.ScaleXProperty,
+                    new DoubleAnimation(previousFill, currentFill, TimeSpan.FromMilliseconds(320))
+                    {
+                        EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+                        FillBehavior = FillBehavior.Stop
+                    });
+                LevelText.BeginAnimation(OpacityProperty,
+                    new DoubleAnimation(0.75, 1, TimeSpan.FromMilliseconds(180))
+                    {
+                        FillBehavior = FillBehavior.Stop
+                    });
+            }
+            else
+            {
+                GaugeScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            }
         }
     }
 
@@ -285,15 +303,25 @@ public partial class WidgetWindow : Window
     {
         Surface.Background = _transparent ? TransparentSurface : _palette.Surface;
         Surface.Effect = _transparent ? null : _shadow;
+        Rim.BorderBrush = _palette.Rim;
+        MouseBadge.Background = _palette.Badge;
+        MouseGlyph.Stroke = _palette.Glyph;
+        GaugeCase.Stroke = _palette.Neutral;
+        GaugeTerminal.Fill = _palette.Neutral;
         BatteryNote.Foreground = _palette.Neutral;
         ApplyReadingColor();
     }
 
     private void ApplyReadingColor()
     {
-        LevelText.Foreground = _connected && !_outdated && _percentage.HasValue
-            ? _palette.Green
-            : _palette.Neutral;
+        var accent = (_connected && !_outdated, _percentage) switch
+        {
+            (true, >= 20) => _palette.Green,
+            (true, >= 0) => _palette.Red,
+            _ => _palette.Neutral
+        };
+        LevelText.Foreground = accent;
+        GaugeFill.Background = accent;
     }
 
     private static string BatteryDescription(int? percentage, bool approximate, bool outdated)
@@ -318,7 +346,8 @@ public partial class WidgetWindow : Window
         return brush;
     }
 
-    private sealed record Palette(Brush Surface, Brush Green, Brush Neutral);
+    private sealed record Palette(Brush Surface, Brush Rim, Brush Badge, Brush Glyph,
+        Brush Green, Brush Red, Brush Neutral);
 
     private static class Native
     {

@@ -68,7 +68,8 @@ internal sealed class DesktopController : IDisposable
         };
 
         _tray = new TrayService(
-            () => SetVisible(true), () => SetVisible(false), () => QueueRefresh(followUpIfBusy: true),
+            () => SetVisible(!_widget.IsVisible), () => SetVisible(true), () => SetVisible(false),
+            () => QueueRefresh(followUpIfBusy: true),
             SelectDevice, ToggleTopmost, ShowSettings, ShowDiagnostics, ToggleStartup, Exit);
         _notifications = new BatteryNotificationService(_history, _tray);
     }
