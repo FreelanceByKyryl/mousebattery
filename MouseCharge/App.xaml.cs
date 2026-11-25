@@ -39,7 +39,7 @@ public partial class App : Application
 
         _desktop = new DesktopController(this);
         _desktop.Start(
-            hideWidget: e.Args.Contains("--tray"),
+            hideFloatingWidget: e.Args.Contains("--tray"),
             registerStartup: e.Args.Contains("--start-with-windows"));
     }
 

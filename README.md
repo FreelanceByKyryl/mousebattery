@@ -13,7 +13,7 @@ Run these commands from PowerShell in the repository.
 .\run.ps1
 ```
 
-Drag the widget to move it between monitors. Use the notification-area icon to show or hide the widget, refresh the battery, select the mouse, toggle always-on-top or startup, open Settings or Diagnostics, or exit. The icon may appear in the Windows tray overflow. Use the tray to change settings when the widget is click-through.
+The battery card docks beside the notification area by default. Use **Dock to taskbar** in the notification-area menu to switch to the floating widget, which you can drag between monitors. Use the same menu to refresh the battery, select the mouse, change startup, open Settings or Diagnostics, or exit.
 
 Settings include the refresh interval (30, 60, 120, or 300 seconds), low-battery warnings, appearance, opacity and size, position lock, and click-through. Settings and last readings are saved in `%LOCALAPPDATA%\MouseCharge`. **Start with Windows** registers the current executable for the current user. If you move the executable, toggle this setting off and on again from the new location.
 
@@ -50,9 +50,9 @@ If MouseCharge is open, choose **Exit** from its notification-area menu. In Powe
 .\install.ps1 -StartWithWindows
 ```
 
-The installer builds and copies the standalone executable to `%LOCALAPPDATA%\Programs\MouseCharge\MouseCharge.exe`, creates a Start menu shortcut, and launches MouseCharge in the tray with the widget hidden. You can close PowerShell after installation. The `-StartWithWindows` switch registers the installed copy to launch when you sign in. You can change startup later in the tray menu.
+The installer builds and copies the standalone executable to `%LOCALAPPDATA%\Programs\MouseCharge\MouseCharge.exe`, creates a Start menu shortcut, and starts MouseCharge. You can close PowerShell after installation. The `-StartWithWindows` switch registers the installed copy to launch when you sign in. You can change startup later in the tray menu.
 
-Click the icon next to the clock to open or hide the compact battery card. The card shows the mouse, a battery gauge, and the percentage. Fresh readings below 20% appear red, other fresh readings appear green, and older readings appear gray. Hover over the tray icon for the percentage and reading status. If the icon is under the arrow next to the clock, drag it into the visible notification area or enable **MouseCharge** in Windows taskbar settings. Windows controls its position among the tray icons.
+Click the icon next to the clock to show or hide the compact battery card. In docked mode, the card sits across the taskbar edge beside the notification area and lets clicks reach the taskbar. The card follows a taskbar set to auto-hide and pauses over fullscreen apps. The card shows the mouse, a battery gauge, and the percentage. Fresh readings below 20% appear red, other fresh readings appear green, and older readings appear gray. Hover over the tray icon for the percentage and reading status. If the icon is under the arrow next to the clock, drag it into the visible notification area or enable **MouseCharge** in Windows taskbar settings.
 
 To update, exit MouseCharge, get the updated source, and rerun the installer. The installer selects your Windows architecture by default. Use `-Runtime` to specify it or `-SkipBuild` to install the executable already present under `artifacts`.
 

@@ -84,4 +84,4 @@ if ($StartWithWindows) {
     $launchArguments += '--start-with-windows'
 }
 Start-Process -FilePath $installedExe -WorkingDirectory $installDirectory -ArgumentList $launchArguments
-Write-Output "Installed MouseCharge to $installedExe. Use its notification-area icon to show the widget."
+Write-Output "Installed MouseCharge to $installedExe. Use its notification-area icon to show or hide the battery card."

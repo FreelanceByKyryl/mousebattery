@@ -12,6 +12,7 @@ internal sealed class TrayService : IDisposable
     private readonly Forms.ToolStripMenuItem _show;
     private readonly Forms.ToolStripMenuItem _hide;
     private readonly Forms.ToolStripMenuItem _selection;
+    private readonly Forms.ToolStripMenuItem _dock;
     private readonly Forms.ToolStripMenuItem _topmost;
     private readonly Forms.ToolStripMenuItem _startup;
     private readonly Action<string?> _selectMouse;
@@ -19,7 +20,8 @@ internal sealed class TrayService : IDisposable
     private (int? Percentage, bool Stale) _indicator;
 
     public TrayService(
-        Action toggleWidget, Action show, Action hide, Action refresh, Action<string?> selectMouse, Action topmost,
+        Action toggleWidget, Action show, Action hide, Action refresh, Action<string?> selectMouse,
+        Action dock, Action topmost,
         Action settings, Action diagnostics, Action startup, Action exit)
     {
         _selectMouse = selectMouse;
@@ -29,6 +31,7 @@ internal sealed class TrayService : IDisposable
         AddItem("Refresh battery", refresh);
         _selection = new Forms.ToolStripMenuItem("Select mouse");
         _menu.Items.Add(_selection);
+        _dock = AddItem("Dock to taskbar", dock);
         _topmost = AddItem("Always on top", topmost);
         _menu.Items.Add(new Forms.ToolStripSeparator());
         AddItem("Settings", settings);
@@ -65,11 +68,13 @@ internal sealed class TrayService : IDisposable
         };
     }
 
-    public void SetState(bool visible, bool topmost, bool startup)
+    public void SetState(bool visible, bool docked, bool topmost, bool startup)
     {
         _show.Enabled = !visible;
         _hide.Enabled = visible;
-        _topmost.Checked = topmost;
+        _dock.Checked = docked;
+        _topmost.Checked = docked || topmost;
+        _topmost.Enabled = !docked;
         _startup.Checked = startup;
     }
 

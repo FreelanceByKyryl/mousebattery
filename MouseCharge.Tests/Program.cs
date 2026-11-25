@@ -1,9 +1,14 @@
+using System.Drawing;
 using MouseCharge.Core;
 using MouseCharge.Devices;
 
 var tests = new (string Name, Action Run)[]
 {
     ("Default settings and local JSON round trip", SettingsRoundTrip),
+    ("Existing floating widget settings default to a visible taskbar dock", UpgradeWidgetSettings),
+    ("Bottom taskbar dock straddles the bar and clears the notification area", BottomTaskbarDock),
+    ("Top taskbar dock uses physical pixels on a scaled negative monitor", ScaledTaskbarDock),
+    ("Taskbar dock handles a vertical bar and hides when there is no safe fit", TaskbarDockFallback),
     ("Old, invalid and corrupted settings", InvalidSettings),
     ("Last known reading persists separately for each mouse", BatteryRoundTrip),
     ("Low battery notification is latched below the threshold", BatteryWarnings),
@@ -40,6 +45,8 @@ static void SettingsRoundTrip()
     Equal(60, settings.RefreshSeconds);
     Equal(15, settings.LowBatteryThreshold);
     Equal(true, settings.NotificationsEnabled);
+    Equal(true, settings.DockToTaskbar);
+    Equal(true, settings.TaskbarWidgetVisible);
     Equal(true, settings.WidgetVisible);
     Equal(null, store.LoadIssue);
 
@@ -55,6 +62,8 @@ static void SettingsRoundTrip()
     edited.PositionLocked = true;
     edited.ClickThrough = true;
     edited.StartWithWindows = true;
+    edited.DockToTaskbar = false;
+    edited.TaskbarWidgetVisible = false;
     edited.WidgetVisible = false;
     edited.DesktopX = -1050;
     edited.DesktopY = 420;
@@ -74,6 +83,8 @@ static void SettingsRoundTrip()
     Equal(true, loaded.PositionLocked);
     Equal(true, loaded.ClickThrough);
     Equal(true, loaded.StartWithWindows);
+    Equal(false, loaded.DockToTaskbar);
+    Equal(false, loaded.TaskbarWidgetVisible);
     Equal(false, loaded.WidgetVisible);
     Equal<double?>(-1050, loaded.DesktopX);
     Equal<double?>(420, loaded.DesktopY);
@@ -82,6 +93,68 @@ static void SettingsRoundTrip()
     store.Save(edited);
     Equal(false, store.Load().NotificationsEnabled);
     Equal(1, Directory.GetFiles(data.Path).Length);
+}
+
+static void UpgradeWidgetSettings()
+{
+    using var data = new TestDirectory();
+    File.WriteAllText(Path.Combine(data.Path, "settings.json"), """
+        {"widgetVisible":false,"desktopX":-1050,"desktopY":420}
+        """);
+    var store = new SettingsStore(data.Path);
+    var settings = store.Load();
+    Equal(true, settings.DockToTaskbar);
+    Equal(true, settings.TaskbarWidgetVisible);
+    Equal(false, settings.WidgetVisible);
+    Equal<double?>(-1050, settings.DesktopX);
+    Equal<double?>(420, settings.DesktopY);
+
+    settings.TaskbarWidgetVisible = false;
+    settings.WidgetVisible = true;
+    store.Save(settings);
+
+    var reloaded = new SettingsStore(data.Path).Load();
+    Equal(true, reloaded.DockToTaskbar);
+    Equal(false, reloaded.TaskbarWidgetVisible);
+    Equal(true, reloaded.WidgetVisible);
+}
+
+static void BottomTaskbarDock()
+{
+    var monitor = new Rectangle(0, 0, 1920, 1080);
+    var bar = new Rectangle(0, 1032, 1920, 48);
+    var tray = new Rectangle(1612, 1032, 308, 48);
+
+    var point = TaskbarPlacement.Find(monitor, bar, tray, 245, 103, 96);
+    Equal<(int X, int Y)?>((1359, 977), point);
+    var card = new Rectangle(point!.Value.X, point.Value.Y, 245, 103);
+    Equal(monitor.Bottom, card.Bottom);
+    Equal(true, card.Top < bar.Top && card.IntersectsWith(bar));
+    Equal(8, tray.Left - card.Right);
+}
+
+static void ScaledTaskbarDock()
+{
+    var monitor = new Rectangle(-1920, -1080, 1920, 1080);
+    var bar = new Rectangle(-1920, -1080, 1920, 72);
+    var tray = new Rectangle(-420, -1080, 420, 72);
+
+    var point = TaskbarPlacement.Find(monitor, bar, tray, 245, 103, 144);
+    Equal<(int X, int Y)?>((-800, -1080), point);
+    Equal(true, new Rectangle(point!.Value.X, point.Value.Y, 368, 155).Bottom > bar.Bottom);
+}
+
+static void TaskbarDockFallback()
+{
+    var monitor = new Rectangle(0, 0, 1000, 800);
+    var verticalBar = new Rectangle(940, 0, 60, 800);
+    var hiddenBar = new Rectangle(0, 798, 1000, 48);
+    var bottomBar = new Rectangle(0, 752, 1000, 48);
+    var wideTray = new Rectangle(220, 752, 780, 48);
+
+    Equal<(int X, int Y)?>((755, 449), TaskbarPlacement.Find(monitor, verticalBar, null, 245, 103, 96));
+    Equal<(int X, int Y)?>(null, TaskbarPlacement.Find(monitor, hiddenBar, null, 245, 103, 96));
+    Equal<(int X, int Y)?>(null, TaskbarPlacement.Find(monitor, bottomBar, wideTray, 245, 103, 96));
 }
 
 static void InvalidSettings()

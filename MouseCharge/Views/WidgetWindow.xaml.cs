@@ -29,7 +29,9 @@ public partial class WidgetWindow : Window
     private readonly Effect _shadow;
     private Palette _palette = Dark;
     private IntPtr _handle;
-    private (double? X, double? Y) _initialPosition;
+    private (double? X, double? Y) _floatingPosition;
+    private Native.Point? _taskbarPosition;
+    private bool _taskbarDocked;
     private bool _dragging;
     private bool _locked;
     private bool _clickThrough;
@@ -138,11 +140,38 @@ public partial class WidgetWindow : Window
 
     public void RestorePosition(double? x, double? y)
     {
-        _initialPosition = (x, y);
+        _floatingPosition = (x, y);
         PlaceAt(x, y);
     }
 
     public void ResetPosition() => RestorePosition(null, null);
+
+    public void SetTaskbarDocked(bool docked)
+    {
+        if (_taskbarDocked == docked)
+        {
+            return;
+        }
+
+        _taskbarDocked = docked;
+        UpdateWindowStyle();
+        if (docked)
+        {
+            ApplyTaskbarPosition();
+        }
+        else
+        {
+            _taskbarPosition = null;
+            PlaceAt(_floatingPosition.X, _floatingPosition.Y);
+        }
+    }
+
+    // The taskbar position is already in physical virtual-desktop coordinates.
+    public void MoveToTaskbar(int x, int y)
+    {
+        _taskbarPosition = new Native.Point(x, y);
+        ApplyTaskbarPosition();
+    }
 
     protected override void OnSourceInitialized(EventArgs e)
     {
@@ -151,7 +180,14 @@ public partial class WidgetWindow : Window
         _handle = source.Handle;
         source.AddHook(WindowMessage);
         UpdateWindowStyle();
-        PlaceAt(_initialPosition.X, _initialPosition.Y);
+        if (_taskbarDocked)
+        {
+            ApplyTaskbarPosition();
+        }
+        else
+        {
+            PlaceAt(_floatingPosition.X, _floatingPosition.Y);
+        }
     }
 
     protected override void OnClosed(EventArgs e)
@@ -163,7 +199,7 @@ public partial class WidgetWindow : Window
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonDown(e);
-        if (_locked || _clickThrough || e.ButtonState != MouseButtonState.Pressed)
+        if (_taskbarDocked || _locked || _clickThrough || e.ButtonState != MouseButtonState.Pressed)
         {
             return;
         }
@@ -208,7 +244,11 @@ public partial class WidgetWindow : Window
         Dispatcher.InvokeAsync(() =>
         {
             _placementQueued = false;
-            if (!_dragging)
+            if (_taskbarDocked)
+            {
+                ApplyTaskbarPosition();
+            }
+            else if (!_dragging)
             {
                 KeepOnScreen();
             }
@@ -217,7 +257,7 @@ public partial class WidgetWindow : Window
 
     private void KeepOnScreen()
     {
-        if (Native.GetWindowRect(_handle, out var window))
+        if (!_taskbarDocked && Native.GetWindowRect(_handle, out var window))
         {
             PlaceAt(window.Left, window.Top, Native.MonitorFromRect(ref window, Native.NearestMonitor));
         }
@@ -225,7 +265,7 @@ public partial class WidgetWindow : Window
 
     private void PlaceAt(double? x, double? y, IntPtr monitor = default)
     {
-        if (_handle == IntPtr.Zero)
+        if (_handle == IntPtr.Zero || _taskbarDocked)
         {
             return;
         }
@@ -253,16 +293,25 @@ public partial class WidgetWindow : Window
 
         var left = Math.Clamp(hasPosition ? point.X : maxX - inset, area.Left, maxX);
         var top = Math.Clamp(hasPosition ? point.Y : maxY - inset, area.Top, maxY);
-        if (Native.GetWindowRect(_handle, out var current) && (left != current.Left || top != current.Top))
-        {
-            MoveTo(left, top);
-        }
+        MoveTo(left, top);
 
-        if (Native.GetWindowRect(_handle, out var actual) && (DesktopX != actual.Left || DesktopY != actual.Top))
+        if (Native.GetWindowRect(_handle, out var actual))
         {
-            DesktopX = actual.Left;
-            DesktopY = actual.Top;
-            PositionChanged?.Invoke(this, EventArgs.Empty);
+            _floatingPosition = (actual.Left, actual.Top);
+            if (DesktopX != actual.Left || DesktopY != actual.Top)
+            {
+                DesktopX = actual.Left;
+                DesktopY = actual.Top;
+                PositionChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+    }
+
+    private void ApplyTaskbarPosition()
+    {
+        if (_taskbarDocked && _taskbarPosition is { } point)
+        {
+            MoveTo(point.X, point.Y);
         }
     }
 
@@ -270,6 +319,12 @@ public partial class WidgetWindow : Window
 
     private void MoveTo(int x, int y)
     {
+        if (_handle == IntPtr.Zero || !Native.GetWindowRect(_handle, out var current) ||
+            (current.Left == x && current.Top == y))
+        {
+            return;
+        }
+
         const uint noSize = 0x0001;
         const uint noZOrder = 0x0004;
         const uint noActivate = 0x0010;
@@ -286,11 +341,16 @@ public partial class WidgetWindow : Window
         const int extendedStyle = -20;
         const int transparent = 0x00000020;
         const int toolWindow = 0x00000080;
+        const int noActivate = 0x08000000;
         var current = Native.GetWindowLong(_handle, extendedStyle);
-        var style = (current | toolWindow) & ~transparent;
+        var style = (current | toolWindow) & ~(transparent | noActivate);
         if (_clickThrough)
         {
             style |= transparent;
+        }
+        if (_taskbarDocked)
+        {
+            style |= noActivate;
         }
 
         if (style != current)

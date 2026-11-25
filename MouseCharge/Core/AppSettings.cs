@@ -16,6 +16,8 @@ public sealed class AppSettings
     public bool PositionLocked { get; set; }
     public bool ClickThrough { get; set; }
     public bool StartWithWindows { get; set; }
+    public bool DockToTaskbar { get; set; } = true;
+    public bool TaskbarWidgetVisible { get; set; } = true;
     public bool WidgetVisible { get; set; } = true;
     public double? DesktopX { get; set; }
     public double? DesktopY { get; set; }
