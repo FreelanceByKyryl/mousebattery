@@ -18,14 +18,10 @@ public partial class WidgetWindow : Window
     private const double EdgeInset = 18;
 
     private static readonly Palette Dark = new(
-        Brush("#F21B1F26"), Brush("#494F5C"), Brush("#F3F5F8"),
-        Brush("#A9B3C2"), Brush("#3A424F"), Brush("#73DEAB"), Brush("#F5D077"),
-        Brush("#FF8E98"), Brush("#A9B3C2"));
+        Brush("#F21B1F26"), Brush("#73E3A7"), Brush("#A9B3C2"));
 
     private static readonly Palette Light = new(
-        Brush("#F8F8FAFD"), Brush("#CBD3DF"), Brush("#192334"),
-        Brush("#4D5A6B"), Brush("#CBD4E1"), Brush("#216C49"), Brush("#875600"),
-        Brush("#AE293B"), Brush("#515D6D"));
+        Brush("#F8F8FAFD"), Brush("#206D45"), Brush("#515D6D"));
 
     private static readonly Brush TransparentSurface = Brush("#01000000");
     private readonly Effect _shadow;
@@ -40,7 +36,6 @@ public partial class WidgetWindow : Window
     private bool _connected;
     private bool _outdated;
     private int? _percentage;
-    private double _progressTarget;
 
     public WidgetWindow()
     {
@@ -81,37 +76,38 @@ public partial class WidgetWindow : Window
         bool approximate, bool outdated, bool? charging, bool connected,
         DateTimeOffset? lastSuccessfulRead = null)
     {
-        MouseName.Text = mouseName;
-        MouseName.ToolTip = mouseName;
-        ConnectionText.Text = status;
-        ConnectionText.ToolTip = status;
-
         var levelChanged = _percentage != percentage;
         _percentage = percentage;
         _outdated = outdated;
         _connected = connected;
-        LevelText.Text = percentage?.ToString(CultureInfo.CurrentCulture) ?? "—";
-        PercentMark.Visibility = percentage.HasValue ? Visibility.Visible : Visibility.Collapsed;
+        LevelText.Text = percentage is { } value
+            ? value.ToString(CultureInfo.CurrentCulture) + "%"
+            : "—";
 
-        var details = BatteryDescription(percentage, approximate, outdated, charging);
-        BatteryNote.Text = details;
-        BatteryNote.ToolTip = details.Length == 0 ? null : details;
+        var note = BatteryDescription(percentage, approximate, outdated);
+        BatteryNote.Text = note;
+        BatteryNote.Visibility = note.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         AutomationProperties.SetName(LevelText, percentage.HasValue
-            ? $"{percentage}% battery"
+            ? $"{LevelText.Text} battery"
             : "Battery unavailable");
 
+        var details = new List<string> { mouseName, status };
+        if (note.Length > 0)
+        {
+            details.Add(note);
+        }
+        if (!outdated && charging is { } isCharging)
+        {
+            details.Add(isCharging ? "Charging" : "Not charging");
+        }
         if (lastSuccessfulRead is { } reading)
         {
-            var localRead = reading.ToLocalTime();
-            var shortRead = localRead.ToString(localRead.Date == DateTime.Today ? "t" : "d",
-                CultureInfo.CurrentCulture);
-            var fullRead = $"Last read {localRead.ToString("f", CultureInfo.CurrentCulture)}";
-            BatteryNote.Text = details.Length == 0 ? $"Last read {shortRead}" : $"{details} · {shortRead}";
-            BatteryNote.ToolTip = details.Length == 0 ? fullRead : $"{details} · {fullRead}";
+            details.Add($"Last read {reading.ToLocalTime().ToString("f", CultureInfo.CurrentCulture)}");
         }
+        BatteryReading.ToolTip = string.Join(Environment.NewLine, details);
+        AutomationProperties.SetHelpText(LevelText, string.Join(" · ", details));
 
-        ApplyReadingColors();
-        AnimateProgress(percentage.GetValueOrDefault() / 100.0);
+        ApplyReadingColor();
         if (levelChanged && IsVisible && SystemParameters.ClientAreaAnimation)
         {
             var animation = new DoubleAnimation(0.72, 1, TimeSpan.FromMilliseconds(200))
@@ -119,7 +115,6 @@ public partial class WidgetWindow : Window
                 FillBehavior = FillBehavior.Stop
             };
             LevelText.BeginAnimation(OpacityProperty, animation);
-            PercentMark.BeginAnimation(OpacityProperty, animation);
         }
     }
 
@@ -290,57 +285,18 @@ public partial class WidgetWindow : Window
     {
         Surface.Background = _transparent ? TransparentSurface : _palette.Surface;
         Surface.Effect = _transparent ? null : _shadow;
-        Outline.BorderBrush = _palette.Outline;
-        MouseName.Foreground = _palette.Primary;
-        ConnectionText.Foreground = _palette.Secondary;
-        BatteryNote.Foreground = _palette.Secondary;
-        ProgressRail.Background = _palette.Rail;
-        ApplyReadingColors();
+        BatteryNote.Foreground = _palette.Neutral;
+        ApplyReadingColor();
     }
 
-    private void ApplyReadingColors()
+    private void ApplyReadingColor()
     {
-        var accent = !_connected || _outdated ? _palette.Neutral : _percentage switch
-        {
-            >= 50 => _palette.Green,
-            >= 20 => _palette.Yellow,
-            >= 0 => _palette.Red,
-            _ => _palette.Neutral
-        };
-
-        LevelText.Foreground = accent;
-        PercentMark.Foreground = accent;
-        ProgressFill.Background = accent;
-        ConnectionDot.Fill = _connected ? _palette.Green : _palette.Neutral;
+        LevelText.Foreground = _connected && !_outdated && _percentage.HasValue
+            ? _palette.Green
+            : _palette.Neutral;
     }
 
-    private void AnimateProgress(double progress)
-    {
-        var target = Math.Clamp(progress, 0, 1);
-        if (_progressTarget == target)
-        {
-            return;
-        }
-
-        _progressTarget = target;
-        var current = ProgressScale.ScaleX;
-        ProgressScale.ScaleX = target;
-        if (IsVisible && SystemParameters.ClientAreaAnimation)
-        {
-            ProgressScale.BeginAnimation(ScaleTransform.ScaleXProperty,
-                new DoubleAnimation(current, target, TimeSpan.FromMilliseconds(420))
-                {
-                    EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
-                    FillBehavior = FillBehavior.Stop
-                });
-        }
-        else
-        {
-            ProgressScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-        }
-    }
-
-    private static string BatteryDescription(int? percentage, bool approximate, bool outdated, bool? charging)
+    private static string BatteryDescription(int? percentage, bool approximate, bool outdated)
     {
         if (!percentage.HasValue)
         {
@@ -352,15 +308,7 @@ public partial class WidgetWindow : Window
             return approximate ? "Outdated · Approximate" : "Outdated reading";
         }
 
-        var accuracy = approximate ? "Approximate" : string.Empty;
-        var status = charging switch
-        {
-            true => "Charging",
-            false => "Not charging",
-            _ => string.Empty
-        };
-
-        return accuracy.Length > 0 && status.Length > 0 ? $"{accuracy} · {status}" : accuracy + status;
+        return approximate ? "Approximate" : string.Empty;
     }
 
     private static Brush Brush(string hex)
@@ -370,8 +318,7 @@ public partial class WidgetWindow : Window
         return brush;
     }
 
-    private sealed record Palette(Brush Surface, Brush Outline, Brush Primary,
-        Brush Secondary, Brush Rail, Brush Green, Brush Yellow, Brush Red, Brush Neutral);
+    private sealed record Palette(Brush Surface, Brush Green, Brush Neutral);
 
     private static class Native
     {

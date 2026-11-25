@@ -16,12 +16,10 @@
                                           Color="#10141C" Opacity=".42" RenderingBias="Performance" />
                     </Border.Effect>
                 </Border>
-                <Border x:Name="Outline" CornerRadius="18" BorderThickness="1" />
-
-                <Grid Margin="13,9,14,9">
+                <Grid Margin="14,5,14,5">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="86" />
-                        <ColumnDefinition Width="10" />
+                        <ColumnDefinition Width="98" />
+                        <ColumnDefinition Width="8" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <Viewbox Stretch="Uniform" ToolTip="Xtrfy M4 Wireless illustration"
@@ -109,52 +107,13 @@
                         </Canvas>
                     </Viewbox>
 
-                    <Grid Grid.Column="2">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="17" />
-                            <RowDefinition Height="13" />
-                            <RowDefinition Height="46" />
-                            <RowDefinition Height="4" />
-                            <RowDefinition Height="4" />
-                            <RowDefinition Height="13" />
-                        </Grid.RowDefinitions>
-                        <TextBlock x:Name="MouseName" Text="MouseCharge" FontSize="14"
-                                   FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
-                                   VerticalAlignment="Center" />
-                        <Grid Grid.Row="1">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Ellipse x:Name="ConnectionDot" Height="5" Width="5"
-                                     Margin="0,0,5,0" VerticalAlignment="Center" />
-                            <TextBlock x:Name="ConnectionText" Grid.Column="1" Text="Checking devices…"
-                                       FontSize="10.5" TextTrimming="CharacterEllipsis"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-
-                        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right"
-                                    VerticalAlignment="Center">
-                            <TextBlock x:Name="LevelText" Text="—" FontSize="44" FontWeight="SemiBold"
-                                       LineHeight="45" LineStackingStrategy="BlockLineHeight"
-                                       Typography.NumeralAlignment="Tabular" />
-                            <TextBlock x:Name="PercentMark" Text="%" FontSize="19" FontWeight="SemiBold"
-                                       VerticalAlignment="Bottom" Margin="2,0,0,5" Visibility="Collapsed" />
-                        </StackPanel>
-
-                        <Grid Grid.Row="3" ClipToBounds="True">
-                            <Border x:Name="ProgressRail" CornerRadius="2" />
-                            <Border x:Name="ProgressFill" CornerRadius="2" RenderTransformOrigin="0,.5">
-                                <Border.RenderTransform>
-                                    <ScaleTransform x:Name="ProgressScale" ScaleX="0" />
-                                </Border.RenderTransform>
-                            </Border>
-                        </Grid>
-
-                        <TextBlock x:Name="BatteryNote" Grid.Row="5" Text="Battery unavailable" FontSize="10.5"
-                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                                   Typography.NumeralAlignment="Tabular" />
-                    </Grid>
+                    <StackPanel x:Name="BatteryReading" Grid.Column="2" VerticalAlignment="Center"
+                                Background="Transparent">
+                        <TextBlock x:Name="LevelText" Text="—" FontSize="49" FontWeight="SemiBold"
+                                   TextAlignment="Center" Typography.NumeralAlignment="Tabular" />
+                        <TextBlock x:Name="BatteryNote" Text="Battery unavailable" FontSize="11"
+                                   Margin="0,2,0,0" TextAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
                 </Grid>
             </Grid>
         </Grid>
