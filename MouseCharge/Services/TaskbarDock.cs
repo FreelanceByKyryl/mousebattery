@@ -7,8 +7,8 @@ namespace MouseCharge.Services;
 
 internal static class TaskbarDock
 {
-    /// <summary>Returns the top-left corner in physical desktop pixels when the primary taskbar can be used.</summary>
-    public static (int X, int Y)? FindPlacement(double widthDip, double heightDip)
+    /// <summary>Returns the physical position and primary taskbar window when the readout fits.</summary>
+    public static (int X, int Y, IntPtr TaskbarHandle)? FindPlacement(double widthDip, double heightDip)
     {
         var taskbar = Native.FindWindow("Shell_TrayWnd", null);
         if (!TryGetVisibleBounds(taskbar, out var bar))
@@ -44,12 +44,12 @@ internal static class TaskbarDock
 
             int width = (int)Math.Ceiling(widthDip * dpi / 96.0);
             int height = (int)Math.Ceiling(heightDip * dpi / 96.0);
-            var card = new Rectangle(point.X, point.Y, width, height);
-            if (IsShellOverlay(className) && card.IntersectsWith(foregroundBounds))
+            var readout = new Rectangle(point.X, point.Y, width, height);
+            if (IsShellOverlay(className) && readout.IntersectsWith(foregroundBounds))
                 return null;
         }
 
-        return placement;
+        return (point.X, point.Y, taskbar);
     }
 
     private static bool TryGetVisibleBounds(IntPtr window, out Rectangle bounds)

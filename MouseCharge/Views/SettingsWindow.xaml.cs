@@ -11,19 +11,15 @@ internal partial class SettingsWindow : Window
 {
     private readonly AppSettings _settings;
     private readonly Action _showDiagnostics;
-    private readonly Action _resetPosition;
-    private bool _positionResetRequested;
 
     public SettingsWindow(
         AppSettings settings,
         IReadOnlyList<(string Id, string Name)> devices,
-        Action showDiagnostics,
-        Action resetPosition)
+        Action showDiagnostics)
     {
         InitializeComponent();
         _settings = settings;
         _showDiagnostics = showDiagnostics;
-        _resetPosition = resetPosition;
 
         var choices = new List<DeviceChoice> { new(null, "Automatic") };
         var deviceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -52,13 +48,7 @@ internal partial class SettingsWindow : Window
         };
         Threshold.Value = settings.LowBatteryThreshold;
         Notifications.IsChecked = settings.NotificationsEnabled;
-        Scale.Value = settings.WidgetScale;
-        WidgetOpacity.Value = settings.WidgetOpacity;
-        ThemeChoice.SelectedIndex = settings.Theme == "Light" ? 1 : 0;
-        Transparent.IsChecked = settings.TransparentBackground;
-        TopmostChoice.IsChecked = settings.AlwaysOnTop;
-        LockPosition.IsChecked = settings.PositionLocked;
-        ClickThroughChoice.IsChecked = settings.ClickThrough;
+        TaskbarIndicatorChoice.IsChecked = settings.TaskbarIndicatorVisible;
         StartWithWindowsChoice.IsChecked = settings.StartWithWindows;
     }
 
@@ -69,27 +59,10 @@ internal partial class SettingsWindow : Window
         _settings.RefreshSeconds = int.Parse((string)refresh.Tag, CultureInfo.InvariantCulture);
         _settings.LowBatteryThreshold = (int)Threshold.Value;
         _settings.NotificationsEnabled = Notifications.IsChecked == true;
-        _settings.WidgetScale = Scale.Value;
-        _settings.WidgetOpacity = WidgetOpacity.Value;
-        _settings.Theme = (string)((ComboBoxItem)ThemeChoice.SelectedItem).Content;
-        _settings.TransparentBackground = Transparent.IsChecked == true;
-        _settings.AlwaysOnTop = TopmostChoice.IsChecked == true;
-        _settings.PositionLocked = LockPosition.IsChecked == true;
-        _settings.ClickThrough = ClickThroughChoice.IsChecked == true;
+        _settings.TaskbarIndicatorVisible = TaskbarIndicatorChoice.IsChecked == true;
         _settings.StartWithWindows = StartWithWindowsChoice.IsChecked == true;
         _settings.Normalize();
-
-        if (_positionResetRequested)
-            _resetPosition();
-
         DialogResult = true;
-    }
-
-    private void QueuePositionReset(object sender, RoutedEventArgs e)
-    {
-        _positionResetRequested = true;
-        ResetButton.IsEnabled = false;
-        ResetMessage.Visibility = Visibility.Visible;
     }
 
     private void OpenDiagnostics(object sender, RoutedEventArgs e) => _showDiagnostics();

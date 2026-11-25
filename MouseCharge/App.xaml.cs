@@ -22,6 +22,7 @@ public partial class App : Application
             return;
         }
 
+        // Older installers used --tray in the Start menu and sign-in entries.
         if (e.Args.Any(argument => argument is not ("--tray" or "--start-with-windows")))
         {
             ShowUsage();
@@ -38,9 +39,7 @@ public partial class App : Application
         }
 
         _desktop = new DesktopController(this);
-        _desktop.Start(
-            hideFloatingWidget: e.Args.Contains("--tray"),
-            registerStartup: e.Args.Contains("--start-with-windows"));
+        _desktop.Start(registerStartup: e.Args.Contains("--start-with-windows"));
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -84,6 +83,6 @@ public partial class App : Application
     }
 
     private static void ShowUsage() => MessageBox.Show(
-        "MouseCharge.exe [--tray] [--start-with-windows]\nMouseCharge.exe --diagnostics [report path]",
+        "MouseCharge.exe [--start-with-windows]\nMouseCharge.exe --diagnostics [report path]",
         "MouseCharge");
 }

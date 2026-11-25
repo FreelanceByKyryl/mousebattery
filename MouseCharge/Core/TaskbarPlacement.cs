@@ -23,10 +23,11 @@ internal static class TaskbarPlacement
 
         int width = (int)pixelWidth;
         int height = (int)pixelHeight;
-        int gap = (int)Math.Ceiling(8 * scale);
+        int gap = (int)Math.Ceiling(6 * scale);
+        int inset = (int)Math.Ceiling(2 * scale);
         var visibleBar = Rectangle.Intersect(monitor, taskbar);
         var tray = notificationArea is { } bounds ? Rectangle.Intersect(visibleBar, bounds) : Rectangle.Empty;
-        if (visibleBar.Width < gap || visibleBar.Height < gap)
+        if (visibleBar.Width < width + 2 * inset || visibleBar.Height < height + 2 * inset)
         {
             // An auto-hidden taskbar may leave only a reveal strip inside the monitor.
             return null;
@@ -37,42 +38,31 @@ internal static class TaskbarPlacement
         {
             bool onTop = visibleBar.Top - monitor.Top <= gap;
             bool onBottom = monitor.Bottom - visibleBar.Bottom <= gap;
-            if (!onTop && !onBottom)
+            if ((!onTop && !onBottom) || visibleBar.Height < taskbar.Height - gap)
                 return null;
 
-            int reserved = Math.Max((int)Math.Ceiling(320 * scale), monitor.Width / 4);
+            int reserved = (int)Math.Ceiling(264 * scale);
             int trayStart = hasTray ? tray.Left : visibleBar.Right - reserved;
             int x = trayStart - width - gap;
-            if (x < monitor.Left || x + width > monitor.Right)
+            if (x < visibleBar.Left + inset)
                 return null;
 
-            int y = DockAcrossEdge(onTop, monitor.Top, monitor.Bottom, visibleBar.Top, visibleBar.Bottom, height);
+            int y = visibleBar.Top + (visibleBar.Height - height) / 2;
             return (x, y);
         }
 
         bool onLeft = visibleBar.Left - monitor.Left <= gap;
         bool onRight = monitor.Right - visibleBar.Right <= gap;
-        if (!onLeft && !onRight)
+        if ((!onLeft && !onRight) || visibleBar.Width < taskbar.Width - gap)
             return null;
 
-        int reservedHeight = Math.Max((int)Math.Ceiling(240 * scale), monitor.Height / 4);
+        int reservedHeight = (int)Math.Ceiling(200 * scale);
         int trayTop = hasTray ? tray.Top : visibleBar.Bottom - reservedHeight;
         int yAlongBar = trayTop - height - gap;
-        if (yAlongBar < monitor.Top || yAlongBar + height > monitor.Bottom)
+        if (yAlongBar < visibleBar.Top + inset)
             return null;
 
-        int xAcrossBar = DockAcrossEdge(onLeft, monitor.Left, monitor.Right,
-            visibleBar.Left, visibleBar.Right, width);
+        int xAcrossBar = visibleBar.Left + (visibleBar.Width - width) / 2;
         return (xAcrossBar, yAlongBar);
-    }
-
-    private static int DockAcrossEdge(bool atStart, int screenStart, int screenEnd, int barStart, int barEnd,
-        int cardSize)
-    {
-        int barThickness = atStart ? barEnd - screenStart : screenEnd - barStart;
-        // Tall taskbars should still leave a portion of the card protruding into the work area.
-        int overlap = Math.Min(barThickness, Math.Max(1, cardSize * 2 / 3));
-        int start = atStart ? barEnd - overlap : barStart + overlap - cardSize;
-        return Math.Clamp(start, screenStart, screenEnd - cardSize);
     }
 }

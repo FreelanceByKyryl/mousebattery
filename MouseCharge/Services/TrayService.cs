@@ -9,30 +9,23 @@ internal sealed class TrayService : IDisposable
     private readonly Forms.NotifyIcon _icon;
     private readonly Icon _image;
     private readonly Forms.ContextMenuStrip _menu;
-    private readonly Forms.ToolStripMenuItem _show;
-    private readonly Forms.ToolStripMenuItem _hide;
+    private readonly Forms.ToolStripMenuItem _showIndicator;
     private readonly Forms.ToolStripMenuItem _selection;
-    private readonly Forms.ToolStripMenuItem _dock;
-    private readonly Forms.ToolStripMenuItem _topmost;
     private readonly Forms.ToolStripMenuItem _startup;
     private readonly Action<string?> _selectMouse;
     private Icon? _batteryImage;
     private (int? Percentage, bool Stale) _indicator;
 
     public TrayService(
-        Action toggleWidget, Action show, Action hide, Action refresh, Action<string?> selectMouse,
-        Action dock, Action topmost,
+        Action toggleIndicator, Action refresh, Action<string?> selectMouse,
         Action settings, Action diagnostics, Action startup, Action exit)
     {
         _selectMouse = selectMouse;
         _menu = new Forms.ContextMenuStrip();
-        _show = AddItem("Show widget", show);
-        _hide = AddItem("Hide widget", hide);
+        _showIndicator = AddItem("Show on taskbar", toggleIndicator);
         AddItem("Refresh battery", refresh);
         _selection = new Forms.ToolStripMenuItem("Select mouse");
         _menu.Items.Add(_selection);
-        _dock = AddItem("Dock to taskbar", dock);
-        _topmost = AddItem("Always on top", topmost);
         _menu.Items.Add(new Forms.ToolStripSeparator());
         AddItem("Settings", settings);
         AddItem("Diagnostics", diagnostics);
@@ -64,17 +57,13 @@ internal sealed class TrayService : IDisposable
         _icon.MouseClick += (_, e) =>
         {
             if (e.Button == Forms.MouseButtons.Left)
-                toggleWidget();
+                toggleIndicator();
         };
     }
 
-    public void SetState(bool visible, bool docked, bool topmost, bool startup)
+    public void SetState(bool visible, bool startup)
     {
-        _show.Enabled = !visible;
-        _hide.Enabled = visible;
-        _dock.Checked = docked;
-        _topmost.Checked = docked || topmost;
-        _topmost.Enabled = !docked;
+        _showIndicator.Checked = visible;
         _startup.Checked = startup;
     }
 

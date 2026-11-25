@@ -19,9 +19,8 @@ internal sealed class DesktopController : IDisposable
     private readonly CancellationTokenSource _lifetime = new();
     private readonly SemaphoreSlim _deviceAccess = new(1, 1);
     private readonly DispatcherTimer _poll;
-    private readonly DispatcherTimer _savePosition;
     private readonly DispatcherTimer _taskbarPlacement;
-    private readonly WidgetWindow _widget;
+    private readonly TaskbarIndicatorWindow _indicator;
     private readonly TrayService _tray;
     private readonly BatteryNotificationService _notifications;
     private readonly AppSettings _settings;
@@ -47,48 +46,26 @@ internal sealed class DesktopController : IDisposable
 
         _poll = new DispatcherTimer(DispatcherPriority.Background, app.Dispatcher);
         _poll.Tick += (_, _) => QueueRefresh();
-        _savePosition = new DispatcherTimer(DispatcherPriority.Background, app.Dispatcher)
-        {
-            Interval = TimeSpan.FromMilliseconds(350)
-        };
-        _savePosition.Tick += (_, _) =>
-        {
-            _savePosition.Stop();
-            SaveSettings();
-        };
         _taskbarPlacement = new DispatcherTimer(DispatcherPriority.Background, app.Dispatcher)
         {
             Interval = TimeSpan.FromMilliseconds(750)
         };
-        _taskbarPlacement.Tick += (_, _) => RefreshWidgetVisibility();
-
-        _widget = new WidgetWindow();
-        _widget.RestorePosition(_settings.DesktopX, _settings.DesktopY);
-        _widget.PositionChanged += CapturePosition;
-        _widget.Closing += (_, e) =>
-        {
-            if (_disposed)
-                return;
-            e.Cancel = true;
-            _app.Dispatcher.BeginInvoke(() => SetVisible(false));
-        };
+        _taskbarPlacement.Tick += (_, _) => RefreshIndicatorPlacement();
+        _indicator = new TaskbarIndicatorWindow();
 
         _tray = new TrayService(
-            () => SetVisible(!WidgetRequestedVisible), () => SetVisible(true), () => SetVisible(false),
-            () => QueueRefresh(followUpIfBusy: true),
-            SelectDevice, ToggleTaskbarDock, ToggleTopmost, ShowSettings, ShowDiagnostics, ToggleStartup, Exit);
+            ToggleIndicator, () => QueueRefresh(followUpIfBusy: true),
+            SelectDevice, ShowSettings, ShowDiagnostics, ToggleStartup, Exit);
         _notifications = new BatteryNotificationService(_history, _tray);
     }
 
-    public void Start(bool hideFloatingWidget, bool registerStartup)
+    public void Start(bool registerStartup)
     {
-        bool hideFloating = hideFloatingWidget && !_settings.DockToTaskbar;
-        if (hideFloating)
-            _settings.WidgetVisible = false;
         if (registerStartup)
-            SetStartup(true, refreshRegistration: true, startHidden: hideFloatingWidget);
-        if (hideFloating || registerStartup)
+        {
+            SetStartup(true, refreshRegistration: true);
             SaveSettings();
+        }
 
         Render(looking: true);
         ApplyPreferences();
@@ -101,15 +78,11 @@ internal sealed class DesktopController : IDisposable
         if (_disposed)
             return;
 
-        bool positionPending = _savePosition.IsEnabled;
         _disposed = true;
         SystemEvents.PowerModeChanged -= OnPowerModeChanged;
         _poll.Stop();
-        _savePosition.Stop();
         _taskbarPlacement.Stop();
         _lifetime.Cancel();
-        if (positionPending)
-            SaveSettings();
         _tray.Dispose();
         _lifetime.Dispose();
     }
@@ -253,7 +226,7 @@ internal sealed class DesktopController : IDisposable
         int? percent = fresh?.Percentage ?? previous?.Percentage;
         bool approximate = fresh?.IsApproximate ?? previous?.IsApproximate ?? false;
         bool outdated = fresh is null && previous is not null;
-        _widget.SetReading(name, status, percent, approximate, outdated, fresh?.IsCharging, connected,
+        _indicator.SetReading(name, status, percent, approximate, outdated, fresh?.IsCharging,
             fresh?.ReadAt ?? previous?.ReadAt);
         _tray.SetBattery(name, percent, approximate, outdated);
     }
@@ -294,97 +267,47 @@ internal sealed class DesktopController : IDisposable
     private void ApplyPreferences()
     {
         _poll.Interval = TimeSpan.FromSeconds(_settings.RefreshSeconds);
-        bool docked = _settings.DockToTaskbar;
-        _widget.SetTaskbarDocked(docked);
-        _widget.ApplyPreferences(_settings.WidgetOpacity, _settings.WidgetScale, _settings.Theme,
-            _settings.TransparentBackground, docked || _settings.AlwaysOnTop,
-            docked || _settings.PositionLocked, docked || _settings.ClickThrough);
-        SyncWidgetVisibility();
+        UpdateIndicatorVisibility();
     }
 
-    private bool WidgetRequestedVisible
+    private void ToggleIndicator()
     {
-        get => _settings.DockToTaskbar ? _settings.TaskbarWidgetVisible : _settings.WidgetVisible;
-        set
-        {
-            if (_settings.DockToTaskbar)
-                _settings.TaskbarWidgetVisible = value;
-            else
-                _settings.WidgetVisible = value;
-        }
-    }
-
-    private void SetVisible(bool visible)
-    {
-        if (_disposed)
-            return;
-
-        WidgetRequestedVisible = visible;
-        SyncWidgetVisibility();
+        _settings.TaskbarIndicatorVisible = !_settings.TaskbarIndicatorVisible;
+        UpdateIndicatorVisibility();
         SaveSettings();
     }
 
-    private void SyncWidgetVisibility()
+    private void UpdateIndicatorVisibility()
     {
-        _taskbarPlacement.IsEnabled = _settings.DockToTaskbar && WidgetRequestedVisible && !_suspending;
-        RefreshWidgetVisibility();
+        _taskbarPlacement.IsEnabled = _settings.TaskbarIndicatorVisible && !_suspending;
+        RefreshIndicatorPlacement();
         UpdateTrayState();
     }
 
-    private void RefreshWidgetVisibility()
+    private void RefreshIndicatorPlacement()
     {
-        bool visible = WidgetRequestedVisible;
-        if (visible && _settings.DockToTaskbar)
+        var placement = _settings.TaskbarIndicatorVisible && !_suspending
+            ? TaskbarDock.FindPlacement(_indicator.Width, _indicator.Height)
+            : null;
+        if (placement is { } point)
         {
-            var placement = _suspending ? null : TaskbarDock.FindPlacement(_widget.Width, _widget.Height);
-            visible = placement.HasValue;
-            if (placement is { } point)
-                _widget.MoveToTaskbar(point.X, point.Y);
+            _indicator.PlaceOnTaskbar(point.X, point.Y, point.TaskbarHandle);
+            if (!_indicator.IsVisible)
+                _indicator.Show();
         }
-
-        if (visible == _widget.IsVisible)
-            return;
-
-        if (visible)
-            _widget.Show();
-        else
-            _widget.Hide();
+        else if (_indicator.IsVisible)
+        {
+            _indicator.Hide();
+        }
     }
 
     private void UpdateTrayState() =>
-        _tray.SetState(WidgetRequestedVisible, _settings.DockToTaskbar,
-            _settings.AlwaysOnTop, _settings.StartWithWindows);
-
-    private void ToggleTaskbarDock()
-    {
-        bool visible = WidgetRequestedVisible;
-        _settings.DockToTaskbar = !_settings.DockToTaskbar;
-        WidgetRequestedVisible = visible;
-        ApplyPreferences();
-        SaveSettings();
-    }
+        _tray.SetState(_settings.TaskbarIndicatorVisible, _settings.StartWithWindows);
 
     private void Exit()
     {
         Dispose();
         _app.Shutdown();
-    }
-
-    private void CapturePosition(object? sender, EventArgs e)
-    {
-        if (_disposed || _settings.DockToTaskbar)
-            return;
-        _settings.DesktopX = _widget.DesktopX;
-        _settings.DesktopY = _widget.DesktopY;
-        _savePosition.Stop();
-        _savePosition.Start();
-    }
-
-    private void ToggleTopmost()
-    {
-        _settings.AlwaysOnTop = !_settings.AlwaysOnTop;
-        ApplyPreferences();
-        SaveSettings();
     }
 
     private void ToggleStartup()
@@ -403,13 +326,13 @@ internal sealed class DesktopController : IDisposable
         }
     }
 
-    private void SetStartup(bool enabled, bool refreshRegistration = false, bool startHidden = false)
+    private void SetStartup(bool enabled, bool refreshRegistration = false)
     {
         if (!refreshRegistration && enabled == _settings.StartWithWindows)
             return;
         try
         {
-            StartupRegistration.SetEnabled(enabled, startHidden);
+            StartupRegistration.SetEnabled(enabled);
             _settings.StartWithWindows = enabled;
             _startupIssue = null;
         }
@@ -441,11 +364,10 @@ internal sealed class DesktopController : IDisposable
         }
 
         var draft = _settings.Copy();
-        bool resetPosition = false;
         string? previousId = _settings.DeviceId;
         int previousThreshold = _settings.LowBatteryThreshold;
         bool notificationsWereEnabled = _settings.NotificationsEnabled;
-        var window = new SettingsWindow(draft, DeviceChoices(), ShowDiagnostics, () => resetPosition = true);
+        var window = new SettingsWindow(draft, DeviceChoices(), ShowDiagnostics);
         _settingsWindow = window;
         try
         {
@@ -456,20 +378,9 @@ internal sealed class DesktopController : IDisposable
             _settings.RefreshSeconds = draft.RefreshSeconds;
             _settings.LowBatteryThreshold = draft.LowBatteryThreshold;
             _settings.NotificationsEnabled = draft.NotificationsEnabled;
-            _settings.WidgetOpacity = draft.WidgetOpacity;
-            _settings.WidgetScale = draft.WidgetScale;
-            _settings.Theme = draft.Theme;
-            _settings.TransparentBackground = draft.TransparentBackground;
-            _settings.AlwaysOnTop = draft.AlwaysOnTop;
-            _settings.PositionLocked = draft.PositionLocked;
-            _settings.ClickThrough = draft.ClickThrough;
+            _settings.TaskbarIndicatorVisible = draft.TaskbarIndicatorVisible;
             SetStartup(draft.StartWithWindows);
             ApplyPreferences();
-            if (resetPosition)
-            {
-                _settings.DesktopX = _settings.DesktopY = null;
-                _widget.ResetPosition();
-            }
             if (previousId != draft.DeviceId)
                 ResetSelection();
 
@@ -527,8 +438,7 @@ internal sealed class DesktopController : IDisposable
             if (_disposed)
                 return;
             _suspending = e.Mode == PowerModes.Suspend;
-            if (_settings.DockToTaskbar)
-                SyncWidgetVisibility();
+            UpdateIndicatorVisibility();
 
             if (_suspending)
             {

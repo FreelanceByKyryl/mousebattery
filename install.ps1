@@ -74,14 +74,17 @@ $shell = New-Object -ComObject WScript.Shell
 $shortcut = $shell.CreateShortcut($shortcutPath)
 $shortcut.TargetPath = $installedExe
 $shortcut.WorkingDirectory = $installDirectory
-$shortcut.Arguments = '--tray'
+$shortcut.Arguments = ''
 $shortcut.Description = 'MouseCharge mouse battery monitor'
 $shortcut.IconLocation = "$installedExe,0"
 $shortcut.Save()
 
-$launchArguments = @('--tray')
-if ($StartWithWindows) {
-    $launchArguments += '--start-with-windows'
+$launch = @{
+    FilePath = $installedExe
+    WorkingDirectory = $installDirectory
 }
-Start-Process -FilePath $installedExe -WorkingDirectory $installDirectory -ArgumentList $launchArguments
-Write-Output "Installed MouseCharge to $installedExe. Use its notification-area icon to show or hide the battery card."
+if ($StartWithWindows) {
+    $launch.ArgumentList = '--start-with-windows'
+}
+Start-Process @launch
+Write-Output "Installed MouseCharge to $installedExe. The notification-area menu controls the taskbar indicator."
