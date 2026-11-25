@@ -14,20 +14,17 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
         <Viewbox Width="18" Height="14" VerticalAlignment="Center">
-            <Canvas Width="34" Height="25">
-                <Path x:Name="MouseGlyph" StrokeThickness="2" StrokeLineJoin="Round"
+            <Canvas Width="22" Height="14">
+                <Path x:Name="MouseGlyph" StrokeThickness="1.35" StrokeLineJoin="Round"
                       StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                      Data="M14.4,1.7 C8.3,.6 4.6,2.7 3.3,6.4 C2,10 3.1,13.1 4.6,16.3 C5.8,19 4.3,21.6 4.5,24.3 C4.7,28.8 8.6,31.3 13,31.2 C18.5,31.1 22.9,27.1 23.3,22.4 C23.8,18.2 21.4,14.8 22.1,11.2 C23.3,5 19.7,2.6 14.4,1.7 Z
-                            M14,1.9 L13.9,5.6 M13.6,11.9 L13.4,15.5 M4.7,16.5 C10,15.4 16.9,16.7 22.3,14.2
-                            M13.8,5.7 C12.7,5.6 12.1,6.5 12,7.5 L11.8,9.9 C11.7,11 12.3,11.8 13.4,11.9 C14.5,12 15.2,11.2 15.3,10.1 L15.5,7.7 C15.6,6.6 15,5.8 13.8,5.7 Z
-                            M10,21 L10,21.3 M16,21 L16,21.3 M13,25 L13,25.3">
-                    <Path.RenderTransform>
-                        <TransformGroup>
-                            <RotateTransform Angle="-90" CenterX="16" CenterY="16" />
-                            <TranslateTransform X="1" Y="-6" />
-                        </TransformGroup>
-                    </Path.RenderTransform>
-                </Path>
+                      Data="M6,1.75 H14.65 C18.25,1.75 20.65,3.85 20.65,7
+                            C20.65,10.15 18.25,12.25 14.65,12.25 H6
+                            C3.4,12.25 1.35,10.2 1.35,8.05 V5.95
+                            C1.35,3.8 3.4,1.75 6,1.75 Z
+                            M9.3,1.75 V12.25 M1.35,7 H3 M7.45,7 H9.3
+                            M4.25,5.85 H6.2 C6.9,5.85 7.45,6.35 7.45,7
+                            C7.45,7.65 6.9,8.15 6.2,8.15 H4.25
+                            C3.55,8.15 3,7.65 3,7 C3,6.35 3.55,5.85 4.25,5.85 Z" />
             </Canvas>
         </Viewbox>
         <Viewbox Grid.Column="2" Stretch="Uniform" StretchDirection="DownOnly"
