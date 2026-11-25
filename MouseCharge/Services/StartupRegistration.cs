@@ -13,7 +13,7 @@ internal static class StartupRegistration
         return key?.GetValue(ValueName) is string { Length: > 0 };
     }
 
-    public static void SetEnabled(bool enabled)
+    public static void SetEnabled(bool enabled, bool startHidden)
     {
         if (enabled)
         {
@@ -21,7 +21,8 @@ internal static class StartupRegistration
                 ?? throw new InvalidOperationException("MouseCharge could not find its executable.");
             using var key = Registry.CurrentUser.CreateSubKey(RunKey)
                 ?? throw new InvalidOperationException("Windows did not open the startup registry key.");
-            key.SetValue(ValueName, $"\"{executable}\"", RegistryValueKind.String);
+            string arguments = startHidden ? " --tray" : string.Empty;
+            key.SetValue(ValueName, $"\"{executable}\"{arguments}", RegistryValueKind.String);
         }
         else
         {

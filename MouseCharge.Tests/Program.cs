@@ -1,4 +1,5 @@
 using MouseCharge.Core;
+using MouseCharge.Devices;
 
 var tests = new (string Name, Action Run)[]
 {
@@ -7,7 +8,10 @@ var tests = new (string Name, Action Run)[]
     ("Last known reading persists separately for each mouse", BatteryRoundTrip),
     ("Low battery notification is latched below the threshold", BatteryWarnings),
     ("Notification can be disabled and re-enabled", DisabledNotifications),
-    ("Older readings and storage errors preserve the current reading", BatteryRecovery)
+    ("Older readings and storage errors preserve the current reading", BatteryRecovery),
+    ("Xtrfy M4 queries use the documented read-only frames", XtrfyQueries),
+    ("Xtrfy M4 battery reading validates checksum, status and values", XtrfyBatteryReplies),
+    ("Xtrfy M4 receiver status distinguishes connected and asleep", XtrfyConnectionReplies)
 };
 
 var failures = 0;
@@ -169,6 +173,62 @@ static void BatteryRecovery()
     Equal(false, history.RecordReading("a", latest, 15, true));
     Equal(latest, history.GetLastKnown("a"));
     Equal(true, history.PersistenceIssue is not null);
+}
+
+static void XtrfyQueries()
+{
+    byte[] battery = new byte[17];
+    battery[0] = 0x08;
+    battery[1] = 0x04;
+    battery[^1] = 0x49;
+    Equal(true, battery.SequenceEqual(XtrfyM4BatteryProtocol.BuildBatteryQuery()));
+
+    byte[] connection = new byte[17];
+    connection[0] = 0x08;
+    connection[1] = 0x03;
+    connection[^1] = 0x4A;
+    Equal(true, connection.SequenceEqual(XtrfyM4BatteryProtocol.BuildConnectionQuery()));
+}
+
+static void XtrfyBatteryReplies()
+{
+    Equal(true, XtrfyM4BatteryProtocol.TryParseBatteryReply(XtrfyReply(0x04, 0, 0), out int percent, out bool charging));
+    Equal(0, percent);
+    Equal(false, charging);
+    Equal(true, XtrfyM4BatteryProtocol.TryParseBatteryReply(XtrfyReply(0x04, 100, 1), out percent, out charging));
+    Equal(100, percent);
+    Equal(true, charging);
+
+    Equal(false, XtrfyM4BatteryProtocol.TryParseBatteryReply(XtrfyReply(0x04, 101, 0), out _, out _));
+    Equal(false, XtrfyM4BatteryProtocol.TryParseBatteryReply(XtrfyReply(0x04, 80, 2), out _, out _));
+    Equal(false, XtrfyM4BatteryProtocol.TryParseBatteryReply(XtrfyReply(0x04, 80, 0, status: 1), out _, out _));
+    Equal(false, XtrfyM4BatteryProtocol.TryParseBatteryReply(XtrfyReply(0x0A, 80, 0), out _, out _));
+    byte[] corrupted = XtrfyReply(0x04, 80, 0);
+    corrupted[^1] ^= 1;
+    Equal(false, XtrfyM4BatteryProtocol.TryParseBatteryReply(corrupted, out _, out _));
+    Equal(false, XtrfyM4BatteryProtocol.TryParseBatteryReply(corrupted.AsSpan(0, 16), out _, out _));
+}
+
+static void XtrfyConnectionReplies()
+{
+    Equal(true, XtrfyM4BatteryProtocol.TryParseConnectionReply(XtrfyReply(0x03, 0), out bool connected));
+    Equal(false, connected);
+    Equal(true, XtrfyM4BatteryProtocol.TryParseConnectionReply(XtrfyReply(0x03, 1), out connected));
+    Equal(true, connected);
+    Equal(false, XtrfyM4BatteryProtocol.TryParseConnectionReply(XtrfyReply(0x03, 2), out _));
+}
+
+static byte[] XtrfyReply(byte opcode, byte value, byte? charging = null, byte status = 0)
+{
+    var reply = new byte[17];
+    reply[0] = 0x09;
+    reply[1] = opcode;
+    reply[2] = status;
+    reply[5] = charging.HasValue ? (byte)2 : (byte)1;
+    reply[6] = value;
+    reply[7] = charging.GetValueOrDefault();
+    reply[^1] = unchecked((byte)(0x55 - reply.Sum(item => item)));
+    return reply;
 }
 
 static LastKnownBattery Reading(int percentage, int seconds) =>

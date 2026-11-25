@@ -16,6 +16,41 @@ internal sealed class HidBatteryProvider : IBatteryProvider
 
     public string Name => "HID battery reports";
 
+    internal static bool HasVendorReport(
+        SafeFileHandle handle, ushort vendor, ushort product, ushort usagePage,
+        byte reportId, int reportLength, bool feature)
+    {
+        var attributes = new HidAttributes { Size = Marshal.SizeOf<HidAttributes>() };
+        if (!Native.HidD_GetAttributes(handle, ref attributes) ||
+            attributes.VendorId != vendor || attributes.ProductId != product ||
+            !Native.HidD_GetPreparsedData(handle, out var descriptor))
+            return false;
+
+        using (descriptor)
+        {
+            if (Native.HidP_GetCaps(descriptor, out var caps) != Native.HidpStatusSuccess ||
+                caps.UsagePage != usagePage ||
+                (feature ? caps.FeatureReportLength : caps.InputReportLength) != reportLength)
+                return false;
+
+            var type = feature ? ReportType.Feature : ReportType.Input;
+            if (GetValueCaps(type, feature ? caps.FeatureValueCaps : caps.InputValueCaps, descriptor)
+                .Any(item => item.ReportId == reportId))
+                return true;
+
+            ushort count = feature ? caps.FeatureButtonCaps : caps.InputButtonCaps;
+            var buttons = new HidButtonCaps[count];
+            return count > 0 && Native.HidP_GetButtonCaps(type, buttons, ref count, descriptor) == Native.HidpStatusSuccess
+                && buttons.Take(count).Any(item => item.ReportId == reportId);
+        }
+    }
+
+    internal static SafeFileHandle OpenVendorCollection(string path, bool feature) =>
+        Native.Open(path, readInput: !feature, writeFeature: feature);
+
+    internal static bool SendFeature(SafeFileHandle handle, byte[] report) =>
+        Native.HidD_SetFeature(handle, report, report.Length);
+
     public async Task<BatteryProbe> ReadAsync(MouseDevice device, CancellationToken cancellationToken)
     {
         var details = new HashSet<string>(StringComparer.Ordinal);
@@ -226,6 +261,15 @@ internal sealed class HidBatteryProvider : IBatteryProvider
 
     private enum ReportType { Input = 0, Feature = 2 }
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct HidAttributes
+    {
+        public int Size;
+        public ushort VendorId;
+        public ushort ProductId;
+        public ushort Version;
+    }
+
     // Fixed offsets from the Windows WDK's hidpi.h. The native structures contain no pointers.
     [StructLayout(LayoutKind.Explicit, Size = 64)]
     private struct HidCaps
@@ -290,17 +334,22 @@ internal sealed class HidBatteryProvider : IBatteryProvider
         public const int HidpStatusSuccess = 0x00110000;
 
         private const uint GenericRead = 0x80000000;
+        private const uint GenericWrite = 0x40000000;
         private const uint ShareReadWrite = 3;
         private const uint OpenExisting = 3;
         private const uint Overlapped = 0x40000000;
 
-        public static SafeFileHandle Open(string path, bool readInput) => CreateFile(
-            path, readInput ? GenericRead : 0, ShareReadWrite, IntPtr.Zero, OpenExisting,
+        public static SafeFileHandle Open(string path, bool readInput, bool writeFeature = false) => CreateFile(
+            path, readInput ? GenericRead : writeFeature ? GenericWrite : 0, ShareReadWrite, IntPtr.Zero, OpenExisting,
             readInput ? Overlapped : 0, IntPtr.Zero);
 
         [DllImport("kernel32.dll", EntryPoint = "CreateFileW", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
         private static extern SafeFileHandle CreateFile(string path, uint access, uint share, IntPtr security,
             uint disposition, uint flags, IntPtr template);
+
+        [DllImport("hid.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.U1)]
+        public static extern bool HidD_GetAttributes(SafeFileHandle file, ref HidAttributes attributes);
 
         [DllImport("hid.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.U1)]
@@ -313,6 +362,10 @@ internal sealed class HidBatteryProvider : IBatteryProvider
         [DllImport("hid.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.U1)]
         public static extern bool HidD_GetFeature(SafeFileHandle file, [In, Out] byte[] report, int length);
+
+        [DllImport("hid.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.U1)]
+        public static extern bool HidD_SetFeature(SafeFileHandle file, [In] byte[] report, int length);
 
         [DllImport("hid.dll")]
         public static extern int HidP_GetCaps(SafeHidDescriptor descriptor, out HidCaps caps);

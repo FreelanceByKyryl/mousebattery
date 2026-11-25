@@ -70,6 +70,8 @@ internal static class WindowsMouseDiscovery
         var nodes = queries[0].Devices.ToDictionary(device => device.Id, StringComparer.OrdinalIgnoreCase);
         var containers = new Dictionary<Guid, DeviceInformation?>();
         var bluetoothHid = new Dictionary<Guid, IReadOnlyList<DeviceInformation>>();
+        var m4Devices = new Dictionary<string, XtrfyM4UsbDevice>(StringComparer.OrdinalIgnoreCase);
+        IReadOnlyList<DeviceInformation>? usbHidInterfaces = null;
         var usedEndpoints = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var devices = new Dictionary<string, MouseDevice>(StringComparer.OrdinalIgnoreCase);
         var instances = nodes.Keys.Union(mouseInterfaces.Select(group => group.Key), StringComparer.OrdinalIgnoreCase).ToArray();
@@ -110,6 +112,38 @@ internal static class WindowsMouseDiscovery
 
             var isBluetooth = transport.StartsWith("Bluetooth", StringComparison.Ordinal);
             var isUsb = transport.StartsWith("USB", StringComparison.Ordinal);
+            var usbParent = isUsb ? chain.LastOrDefault() : null;
+            var m4Product = usbParent is null ? null : XtrfyM4BatteryProvider.GetUsbProduct(usbParent.Id);
+            XtrfyM4UsbDevice? m4 = null;
+            if (usbParent is not null && m4Product is { } product)
+            {
+                transport = product == XtrfyM4BatteryProvider.ReceiverId ? "USB receiver" : "USB";
+                if (!m4Devices.TryGetValue(usbParent.Id, out m4))
+                {
+                    if (usbHidInterfaces is null)
+                    {
+                        var (results, error) = await QueryAsync("Xtrfy M4 Wireless HID collections",
+                            $"System.Devices.InterfaceClassGuid:=\"{HidInterfaceClass}\"",
+                            InterfaceKeys, DeviceInformationKind.DeviceInterface, queryToken).ConfigureAwait(false);
+                        if (error is not null)
+                            diagnostics.Add(error);
+                        usbHidInterfaces = results;
+                    }
+
+                    var paths = new List<string>();
+                    foreach (var candidate in usbHidInterfaces.Where(item =>
+                                 item.IsEnabled && XtrfyM4BatteryProvider.IsVendorInterface(item.Id, product)))
+                    {
+                        if (GetString(candidate, DeviceInstanceId) is not { } candidateInstance)
+                            continue;
+                        var candidateChain = await GetNodeChainAsync(nodes, candidateInstance, queryToken).ConfigureAwait(false);
+                        if (string.Equals(candidateChain.LastOrDefault()?.Id, usbParent.Id, StringComparison.OrdinalIgnoreCase))
+                            paths.Add(candidate.Id);
+                    }
+                    m4 = new XtrfyM4UsbDevice(product, paths);
+                    m4Devices.Add(usbParent.Id, m4);
+                }
+            }
             // A compound USB receiver can expose mouse and keyboard functions in one container.
             // The container's battery cannot safely be attributed to an individual mouse.
             var properties = ReadBatteryProperties(endpoint?.Device, isBluetooth ? container : null, node, leafInterface);
@@ -121,6 +155,12 @@ internal static class WindowsMouseDiscovery
             var manufacturer = GetString(endpoint?.Device, AepManufacturer) ?? GetString(leafInterface, BluetoothManufacturer)
                 ?? GetString(container, Manufacturer) ?? GetDeviceManufacturer(node)
                 ?? (isUsb ? GetDeviceManufacturer(chain.LastOrDefault()) : null);
+            if (m4 is not null)
+            {
+                name = "Xtrfy M4 Wireless";
+                manufacturer = "Xtrfy";
+                model = "M4 Wireless";
+            }
             var instancePresent = GetBool(node, Present) ?? interfaces.Any(item => item.IsEnabled);
             var isConnected = GetBool(endpoint?.Device, AepConnected) ??
                 (isBluetooth ? GetBool(container, Connected) ?? instancePresent : instancePresent);
@@ -148,6 +188,7 @@ internal static class WindowsMouseDiscovery
                 transport, isConnected, hardwareIds, associatedHid.Select(item => item.Id).ToArray(),
                 properties, endpoint?.IsLe == true ? endpoint.Device.Id : null)
             {
+                XtrfyM4 = m4,
                 BluetoothAddress = transport == "Bluetooth LE" &&
                                    ulong.TryParse(address, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var number)
                     ? number : null

@@ -13,7 +13,10 @@ internal sealed record MouseDevice(
     string? BluetoothId)
 {
     public ulong? BluetoothAddress { get; init; }
+    public XtrfyM4UsbDevice? XtrfyM4 { get; init; }
 }
+
+internal sealed record XtrfyM4UsbDevice(ushort ProductId, IReadOnlyList<string> VendorInterfaces);
 
 internal sealed record MouseDiscovery(IReadOnlyList<MouseDevice> Devices, IReadOnlyList<string> Diagnostics);
 

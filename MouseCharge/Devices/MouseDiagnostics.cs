@@ -24,6 +24,8 @@ internal static class MouseDiagnostics
             report.AppendLine($"  Connection: {device.ConnectionType} · {(device.IsConnected ? "Windows device present" : "disconnected")}");
             report.AppendLine($"  Hardware IDs: {(device.HardwareIds.Count == 0 ? "Unavailable" : string.Join(", ", device.HardwareIds))}");
             report.AppendLine($"  Associated HID interfaces: {device.HidInterfaces.Count}");
+            if (device.XtrfyM4 is { } m4)
+                report.AppendLine($"  Xtrfy M4 Wireless vendor HID interfaces: {m4.VendorInterfaces.Count} (25A7:{m4.ProductId:X4})");
 
             var properties = device.Properties
                 .Where(item => item.Key.Contains("battery", StringComparison.OrdinalIgnoreCase) ||

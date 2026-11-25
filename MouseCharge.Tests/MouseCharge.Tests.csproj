@@ -7,5 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../MouseCharge/Core/*.cs" Link="Core/%(Filename)%(Extension)" />
+    <Compile Include="../MouseCharge/Devices/XtrfyM4BatteryProtocol.cs" Link="Devices/XtrfyM4BatteryProtocol.cs" />
   </ItemGroup>
 </Project>

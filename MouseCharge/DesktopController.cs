@@ -73,8 +73,15 @@ internal sealed class DesktopController : IDisposable
         _notifications = new BatteryNotificationService(_history, _tray);
     }
 
-    public void Start()
+    public void Start(bool hideWidget, bool registerStartup)
     {
+        if (hideWidget)
+            _settings.WidgetVisible = false;
+        if (registerStartup)
+            SetStartup(true, refreshRegistration: true, startHidden: hideWidget);
+        if (hideWidget || registerStartup)
+            SaveSettings();
+
         ApplyPreferences();
         SetVisible(_settings.WidgetVisible, persist: false);
         Render(looking: true);
@@ -340,13 +347,13 @@ internal sealed class DesktopController : IDisposable
         }
     }
 
-    private void SetStartup(bool enabled)
+    private void SetStartup(bool enabled, bool refreshRegistration = false, bool startHidden = false)
     {
-        if (enabled == _settings.StartWithWindows)
+        if (!refreshRegistration && enabled == _settings.StartWithWindows)
             return;
         try
         {
-            StartupRegistration.SetEnabled(enabled);
+            StartupRegistration.SetEnabled(enabled, startHidden);
             _settings.StartWithWindows = enabled;
             _startupIssue = null;
         }

@@ -5,6 +5,7 @@ internal sealed class MouseBatteryService
     private readonly IBatteryProvider[] providers =
     [
         new BluetoothBatteryProvider(),
+        new XtrfyM4BatteryProvider(),
         new HidBatteryProvider(),
         new WindowsPropertyBatteryProvider()
     ];

@@ -15,6 +15,8 @@ internal sealed class TrayService : IDisposable
     private readonly Forms.ToolStripMenuItem _topmost;
     private readonly Forms.ToolStripMenuItem _startup;
     private readonly Action<string?> _selectMouse;
+    private Icon? _batteryImage;
+    private (int? Percentage, bool Approximate, bool Stale) _indicator;
 
     public TrayService(
         Action show, Action hide, Action refresh, Action<string?> selectMouse, Action topmost,
@@ -95,6 +97,16 @@ internal sealed class TrayService : IDisposable
             name = name[..end] + "…";
         }
         _icon.Text = prefix + name + suffix;
+
+        var indicator = (percent, approximate, stale);
+        if (indicator == _indicator)
+            return;
+
+        var image = TrayBatteryIcon.Create(percent, approximate, stale);
+        _icon.Icon = image ?? _image;
+        _batteryImage?.Dispose();
+        _batteryImage = image;
+        _indicator = indicator;
     }
 
     public void ShowWarning(string title, string message) =>
@@ -105,6 +117,7 @@ internal sealed class TrayService : IDisposable
         _icon.Visible = false;
         _icon.Dispose();
         _menu.Dispose();
+        _batteryImage?.Dispose();
         _image.Dispose();
     }
 

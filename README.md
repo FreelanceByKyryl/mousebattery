@@ -24,9 +24,12 @@ Settings include the refresh interval (30, 60, 120, or 300 seconds), low-battery
 | Bluetooth LE | Battery Service (`0x180F`) and Battery Level (`0x2A19`) when Windows allows access |
 | Windows HID mouse | Standard Battery Strength and Relative State of Charge reports when the driver exposes and permits reading them |
 | USB wireless receiver | Standard HID battery reports when attributable to the mouse, or a battery property Windows publishes for the device |
+| Xtrfy M4 Wireless | Battery and charging status through the USB receiver (`25A7:FA99`) or cable (`25A7:FA92`) |
 | Windows device properties | OS-reported battery level, labeled approximate because Windows may cache or round it |
 
 Actual support depends on the device and driver. Some USB receivers expose a generic mouse interface, while the mouse battery is accessible only through the manufacturer's software. Proprietary receiver protocols may therefore show **Battery unavailable**. Diagnostics lists the device identity as Windows reports it and explains which battery sources were available. MouseCharge uses read-only requests and does not change mouse settings, drivers, or firmware.
+
+The Xtrfy provider sends only the documented battery and receiver connection queries. The community reference verified the protocol on mouse firmware 3.18. Compatibility with other firmware revisions depends on the receiver's HID interfaces and replies. [Protocol reference](https://github.com/Xurify/xtrfy-m4-control-software/blob/cf71362c06f0c8a911078298bd89af4046e821c6/README.md#protocol-notes)
 
 When a refresh cannot retrieve a percentage, MouseCharge marks a last successful reading as **outdated**. The default interval is 60 seconds. A warning appears when a fresh reading is below the configured threshold (15% by default) once per low-battery period. Charging animation appears only when a provider reports that the mouse is charging.
 
@@ -38,6 +41,20 @@ When a refresh cannot retrieve a percentage, MouseCharge marks a last successful
 ```
 
 Choose `win-arm64` for ARM64 or `win-x86` for 32-bit x86 Windows. Copy the executable for the target architecture to a compatible Windows computer. The executable includes the .NET runtime.
+
+## Install for everyday use
+
+If MouseCharge is open, choose **Exit** from its notification-area menu. In PowerShell, run the installer from the repository folder.
+
+```powershell
+.\install.ps1 -StartWithWindows
+```
+
+The installer builds and copies the standalone executable to `%LOCALAPPDATA%\Programs\MouseCharge\MouseCharge.exe`, creates a Start menu shortcut, and launches MouseCharge in the tray with the widget hidden. You can close PowerShell after installation. The `-StartWithWindows` switch registers the installed copy to launch when you sign in. You can change startup later in the tray menu.
+
+The tray icon shows the battery percentage when a reading is available. A gray number is an older reading. Hover over the icon for the device name, percentage, and reading status. If the icon is under the arrow next to the clock, drag it into the visible notification area or enable **MouseCharge** in Windows taskbar settings. Windows controls its position among the tray icons. Use **Show widget** in the tray menu to open the floating widget.
+
+To update, exit MouseCharge, get the updated source, and rerun the installer. The installer selects your Windows architecture by default. Use `-Runtime` to specify it or `-SkipBuild` to install the executable already present under `artifacts`.
 
 ## Run hardware diagnostics
 
@@ -62,4 +79,4 @@ The standalone command above opens the report in Notepad. The report contains de
 dotnet run --project MouseCharge.Tests/MouseCharge.Tests.csproj -c Release
 ```
 
-The automated checks exercise local settings, recovery from damaged data, cached readings, and notification thresholds. Launch, rendering, tray behavior, and physical mouse detection require a Windows desktop to verify.
+The automated checks exercise local settings, cached readings, notification thresholds, and parsing of Xtrfy M4 Wireless replies. Launch, rendering, tray behavior, and physical mouse detection require a Windows desktop to verify.

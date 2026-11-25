@@ -16,9 +16,16 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        if (e.Args.Length > 0)
+        if (e.Args.Length > 0 && e.Args[0] == "--diagnostics")
         {
             Shutdown(await RunCommandAsync(e.Args));
+            return;
+        }
+
+        if (e.Args.Any(argument => argument is not ("--tray" or "--start-with-windows")))
+        {
+            ShowUsage();
+            Shutdown(2);
             return;
         }
 
@@ -31,7 +38,9 @@ public partial class App : Application
         }
 
         _desktop = new DesktopController(this);
-        _desktop.Start();
+        _desktop.Start(
+            hideWidget: e.Args.Contains("--tray"),
+            registerStartup: e.Args.Contains("--start-with-windows"));
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -43,9 +52,9 @@ public partial class App : Application
 
     private static async Task<int> RunCommandAsync(string[] args)
     {
-        if (args[0] != "--diagnostics" || args.Length > 2)
+        if (args.Length > 2)
         {
-            MessageBox.Show("Usage: MouseCharge.exe --diagnostics [report path]", "MouseCharge");
+            ShowUsage();
             return 2;
         }
 
@@ -73,4 +82,8 @@ public partial class App : Application
             return 1;
         }
     }
+
+    private static void ShowUsage() => MessageBox.Show(
+        "MouseCharge.exe [--tray] [--start-with-windows]\nMouseCharge.exe --diagnostics [report path]",
+        "MouseCharge");
 }
