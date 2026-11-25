@@ -18,76 +18,141 @@
                 </Border>
                 <Border x:Name="Outline" CornerRadius="18" BorderThickness="1" />
 
-                <Grid Margin="15,13,15,12">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="43" />
-                        <RowDefinition Height="12" />
-                        <RowDefinition Height="4" />
-                        <RowDefinition Height="9" />
-                        <RowDefinition Height="22" />
-                    </Grid.RowDefinitions>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="34" />
-                            <ColumnDefinition Width="10" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
+                <Grid Margin="13,9,14,9">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="86" />
+                        <ColumnDefinition Width="10" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Viewbox Stretch="Uniform" ToolTip="Xtrfy M4 Wireless illustration"
+                             AutomationProperties.Name="Xtrfy M4 Wireless illustration">
+                        <Canvas Width="94" Height="111">
+                            <Canvas.Resources>
+                                <LinearGradientBrush x:Key="MouseShell" StartPoint="0,0" EndPoint=".85,1">
+                                    <GradientStop Color="#617486" Offset="0" />
+                                    <GradientStop Color="#374553" Offset=".42" />
+                                    <GradientStop Color="#202B37" Offset=".76" />
+                                    <GradientStop Color="#121923" Offset="1" />
+                                </LinearGradientBrush>
+                                <LinearGradientBrush x:Key="MouseButtons" StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="#667888" Offset="0" />
+                                    <GradientStop Color="#455462" Offset=".42" />
+                                    <GradientStop Color="#26323F" Offset="1" />
+                                </LinearGradientBrush>
+                                <LinearGradientBrush x:Key="LightEdge" StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="#8687EF" Offset="0" />
+                                    <GradientStop Color="#56AEC8" Offset=".45" />
+                                    <GradientStop Color="#65CFB3" Offset="1" />
+                                </LinearGradientBrush>
+                            </Canvas.Resources>
+                            <Ellipse Width="90" Height="106" Canvas.Left="2" Canvas.Top="1">
+                                <Ellipse.Fill>
+                                    <RadialGradientBrush>
+                                        <GradientStop Color="#4C64A6AA" Offset="0" />
+                                        <GradientStop Color="#0064A6AA" Offset="1" />
+                                    </RadialGradientBrush>
+                                </Ellipse.Fill>
+                            </Ellipse>
+                            <Ellipse Width="69" Height="17" Canvas.Left="15" Canvas.Top="92">
+                                <Ellipse.Fill>
+                                    <RadialGradientBrush>
+                                        <GradientStop Color="#9C0D121A" Offset="0" />
+                                        <GradientStop Color="#000D121A" Offset="1" />
+                                    </RadialGradientBrush>
+                                </Ellipse.Fill>
+                            </Ellipse>
+                            <Canvas RenderTransformOrigin=".5,.5" Width="92" Height="110">
+                                <Canvas.RenderTransform>
+                                    <RotateTransform Angle="-13" />
+                                </Canvas.RenderTransform>
 
-                        <Border x:Name="IconSurface" Height="34" CornerRadius="10"
-                                VerticalAlignment="Center">
-                            <Viewbox Width="20" Height="20" IsHitTestVisible="False">
-                                <Canvas Width="24" Height="24">
-                                    <Path x:Name="MouseGlyph" StrokeThickness="1.5"
-                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                          Data="M12,3 C15.4,3 18.2,5.8 18.2,9.2 L18.2,14.8 C18.2,18.3 15.4,21 12,21 C8.6,21 5.8,18.3 5.8,14.8 L5.8,9.2 C5.8,5.8 8.6,3 12,3 Z M12,6.5 L12,10" />
-                                </Canvas>
-                            </Viewbox>
-                        </Border>
+                                <!-- Low sidewall, sculpted thumb rest and Xtrfy's illuminated lower rim. -->
+                                <Path Fill="#111721" Stroke="#465565" StrokeThickness="1.15"
+                                      Data="M44,7 C28,4 16,8 11,18 C6,29 8,40 12,49 C15,58 13,67 10,77 C7,88 11,98 22,104 C37,112 56,106 69,97 C79,89 82,75 79,61 C76,48 82,32 78,21 C74,10 63,7 44,7 Z" />
+                                <Path Fill="{StaticResource MouseShell}" Stroke="#7E8C9C" StrokeThickness="1.15"
+                                      Data="M44,4 C29,2 18,6 14,15 C10,23 10,34 14,43 C18,52 17,62 14,72 C10,84 14,95 25,100 C38,106 56,101 66,92 C76,84 79,71 76,59 C73,47 77,31 75,20 C73,8 61,4 44,4 Z" />
+                                <Path Stroke="{StaticResource LightEdge}" StrokeThickness="1.5" Opacity=".9"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      Data="M11,44 C13,51 15,59 12,70 C7,83 12,95 23,101 C33,107 46,105 57,101" />
+                                <Path Stroke="#ECF6FF" StrokeThickness=".8" Opacity=".22"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      Data="M18,16 C22,9 31,7 40,7 M72,63 C75,76 69,88 61,94" />
 
-                        <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                            <TextBlock x:Name="MouseName" Text="MouseCharge" FontSize="14"
-                                       FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                            <Grid Margin="0,4,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Ellipse x:Name="ConnectionDot" Height="6" Width="6"
-                                         Margin="0,0,5,0" VerticalAlignment="Center" />
-                                <TextBlock x:Name="ConnectionText" Grid.Column="1"
-                                           Text="Checking devices…" FontSize="11"
-                                           TextTrimming="CharacterEllipsis" />
-                            </Grid>
-                        </StackPanel>
+                                <!-- Separate left and right primary buttons with a textured scroll wheel. -->
+                                <Path Fill="{StaticResource MouseButtons}" Stroke="#25303D" StrokeThickness="1.1"
+                                      Data="M43,5 C30,3 20,7 16,15 C12,20 12,28 14,33 C16,38 23,41 34,41 L39,38 C37,32 37,23 40,15 Z" />
+                                <Path Fill="{StaticResource MouseButtons}" Stroke="#222D3A" StrokeThickness="1.1"
+                                      Data="M47,5 C57,5 68,8 72,15 C75,21 75,31 72,37 C66,39 57,39 50,37 L46,34 C47,27 47,19 44,15 Z" />
+                                <Path Fill="#10151C" Stroke="#77899B" StrokeThickness=".85"
+                                      Data="M41.5,13 C38,15 36,26 38.5,30.8 C41,34.6 46.8,33 47.3,28.2 C48.4,22.7 45.9,12 41.5,13 Z" />
+                                <Path Fill="#465869" Data="M41.7,17 C39.6,18 38.9,26 40.1,28.7 C41.5,31.3 45,30.8 45.5,28 C46,24.4 44.5,16.4 41.7,17 Z" />
+                                <Path Stroke="#9BAAB9" StrokeThickness=".72" Opacity=".75"
+                                      Data="M40,20 L44.4,19.6 M39.5,22.5 L45,22 M39.4,25 L45.4,24.5 M40,27.5 L45.5,27" />
+                                <Path Fill="#0E151D" Stroke="#647789" StrokeThickness=".75"
+                                      Data="M42.6,35.3 C44.7,35.1 46.1,35.7 46.1,37 C46.1,38.3 44.7,39 42.6,39 C40.6,39 39.5,38.4 39.5,37.2 C39.5,36.2 40.6,35.5 42.6,35.3 Z" />
+                                <Path Fill="#17202A" Stroke="#718091" StrokeThickness=".75"
+                                      Data="M14.1,46 C15.1,45.6 16,46.2 16.6,47.7 L18.3,53.1 C18.7,54.4 18.4,55.6 17.5,55.7 C16.9,55.8 16.2,54.9 15.8,53.6 L14.3,49.5 C13.9,48.2 13.5,46.8 14.1,46 Z M17.9,57.6 C18.7,57.8 19.3,58.6 19.1,60.4 L18.5,65.8 C18.4,67.2 17.6,68.2 16.9,67.9 C16.2,67.7 16.2,66.6 16.4,65.5 L16.9,60.1 C17,58.6 17.2,57.5 17.9,57.6 Z" />
 
-                        <StackPanel Grid.Column="3" Margin="8,-5,0,0" Orientation="Horizontal"
+                                <!-- Recessed honeycomb perforations across the palm shell. -->
+                                <Path Fill="#111923" Stroke="#627484" StrokeThickness=".52" StrokeLineJoin="Round"
+                                      Data="
+                                        M29,42 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M37,42 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M45,42 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M53,42 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z
+                                        M25,49 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M33,49 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M41,49 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M49,49 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M57,49 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M65,49 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z
+                                        M29,56 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M37,56 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M45,56 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M53,56 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M61,56 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z
+                                        M25,63 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M33,63 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M41,63 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M49,63 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M57,63 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M65,63 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z
+                                        M21,70 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M29,70 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M37,70 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M45,70 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M53,70 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M61,70 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z
+                                        M25,77 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M33,77 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M41,77 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M49,77 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M57,77 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M65,77 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z
+                                        M29,84 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M37,84 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M45,84 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M53,84 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M61,84 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z
+                                        M33,91 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M41,91 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M49,91 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z M57,91 l2.6,1.5 v3 l-2.6,1.5 l-2.6,-1.5 v-3 Z
+                                      " />
+                            </Canvas>
+                        </Canvas>
+                    </Viewbox>
+
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="17" />
+                            <RowDefinition Height="13" />
+                            <RowDefinition Height="46" />
+                            <RowDefinition Height="4" />
+                            <RowDefinition Height="4" />
+                            <RowDefinition Height="13" />
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="MouseName" Text="MouseCharge" FontSize="14"
+                                   FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center" />
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Ellipse x:Name="ConnectionDot" Height="5" Width="5"
+                                     Margin="0,0,5,0" VerticalAlignment="Center" />
+                            <TextBlock x:Name="ConnectionText" Grid.Column="1" Text="Checking devices…"
+                                       FontSize="10.5" TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right"
                                     VerticalAlignment="Center">
-                            <TextBlock x:Name="LevelText" Text="—" FontSize="34" FontWeight="SemiBold"
+                            <TextBlock x:Name="LevelText" Text="—" FontSize="44" FontWeight="SemiBold"
+                                       LineHeight="45" LineStackingStrategy="BlockLineHeight"
                                        Typography.NumeralAlignment="Tabular" />
-                            <TextBlock x:Name="PercentMark" Text="%" FontSize="16" FontWeight="SemiBold"
-                                       VerticalAlignment="Bottom" Margin="1,0,0,6" Visibility="Collapsed" />
+                            <TextBlock x:Name="PercentMark" Text="%" FontSize="19" FontWeight="SemiBold"
+                                       VerticalAlignment="Bottom" Margin="2,0,0,5" Visibility="Collapsed" />
                         </StackPanel>
-                    </Grid>
 
-                    <Grid Grid.Row="2" ClipToBounds="True">
-                        <Border x:Name="ProgressRail" CornerRadius="2" />
-                        <Border x:Name="ProgressFill" CornerRadius="2" RenderTransformOrigin="0,.5">
-                            <Border.RenderTransform>
-                                <ScaleTransform x:Name="ProgressScale" ScaleX="0" />
-                            </Border.RenderTransform>
-                        </Border>
-                    </Grid>
+                        <Grid Grid.Row="3" ClipToBounds="True">
+                            <Border x:Name="ProgressRail" CornerRadius="2" />
+                            <Border x:Name="ProgressFill" CornerRadius="2" RenderTransformOrigin="0,.5">
+                                <Border.RenderTransform>
+                                    <ScaleTransform x:Name="ProgressScale" ScaleX="0" />
+                                </Border.RenderTransform>
+                            </Border>
+                        </Grid>
 
-                    <Grid Grid.Row="4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="BatteryNote" Text="Battery unavailable" FontSize="11"
-                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                        <TextBlock x:Name="LastReadText" Grid.Column="1" FontSize="11"
-                                   Margin="6,0,0,0" VerticalAlignment="Center"
+                        <TextBlock x:Name="BatteryNote" Grid.Row="5" Text="Battery unavailable" FontSize="10.5"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                    Typography.NumeralAlignment="Tabular" />
                     </Grid>
                 </Grid>

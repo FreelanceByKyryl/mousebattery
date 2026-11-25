@@ -52,7 +52,7 @@ If MouseCharge is open, choose **Exit** from its notification-area menu. In Powe
 
 The installer builds and copies the standalone executable to `%LOCALAPPDATA%\Programs\MouseCharge\MouseCharge.exe`, creates a Start menu shortcut, and launches MouseCharge in the tray with the widget hidden. You can close PowerShell after installation. The `-StartWithWindows` switch registers the installed copy to launch when you sign in. You can change startup later in the tray menu.
 
-The tray icon shows the battery percentage when a reading is available. A gray number is an older reading. Hover over the icon for the device name, percentage, and reading status. If the icon is under the arrow next to the clock, drag it into the visible notification area or enable **MouseCharge** in Windows taskbar settings. Windows controls its position among the tray icons. Use **Show widget** in the tray menu to open the floating widget.
+The tray icon shows an Xtrfy M4 Wireless silhouette on the left and the battery level on the right. A gray number is an older reading. Hover over the icon for the device name, full percentage, and reading status. If the icon is under the arrow next to the clock, drag it into the visible notification area or enable **MouseCharge** in Windows taskbar settings. Windows controls its position among the tray icons. Use **Show widget** in the tray menu for the larger mouse illustration and percentage.
 
 To update, exit MouseCharge, get the updated source, and rerun the installer. The installer selects your Windows architecture by default. Use `-Runtime` to specify it or `-SkipBuild` to install the executable already present under `artifacts`.
 
