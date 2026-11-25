@@ -1,6 +1,6 @@
 # MouseCharge
 
-MouseCharge shows the battery level of a wireless mouse next to the clock on the Windows taskbar. It reads locally from Windows and the mouse. It needs no account, internet connection at runtime, background service, or administrator access.
+MouseCharge shows the battery level of a wireless mouse in its Windows notification-area icon. It reads locally from Windows and the mouse. It needs no account, internet connection at runtime, background service, or administrator access.
 
 ## Run on Windows
 
@@ -13,9 +13,9 @@ Run these commands from PowerShell in the repository.
 .\run.ps1
 ```
 
-The notification-area menu lets you show the taskbar indicator, refresh the battery, select the mouse, change startup, open Settings or Diagnostics, or exit.
+Right-click the notification-area icon to refresh the battery, select the mouse, change startup, open Settings or Diagnostics, or exit.
 
-Settings include the refresh interval (30, 60, 120, or 300 seconds), low-battery warnings, and whether to show the taskbar indicator. Settings and last readings are saved in `%LOCALAPPDATA%\MouseCharge`. **Start with Windows** registers the current executable for the current user. If you move the executable, toggle this setting off and on again from the new location.
+Settings include the refresh interval (30, 60, 120, or 300 seconds) and low-battery warnings. Settings and last readings are saved in `%LOCALAPPDATA%\MouseCharge`. **Start with Windows** registers the current executable for the current user. If you move the executable, toggle this setting off and on again from the new location.
 
 ## Battery support
 
@@ -52,7 +52,7 @@ If MouseCharge is open, choose **Exit** from its notification-area menu. In Powe
 
 The installer builds and copies the standalone executable to `%LOCALAPPDATA%\Programs\MouseCharge\MouseCharge.exe`, creates a Start menu shortcut, and starts MouseCharge. You can close PowerShell after installation. The `-StartWithWindows` switch registers the installed copy to launch when you sign in. You can change startup later in the tray menu.
 
-The indicator shows a sideways mouse outline and the percentage on one line inside the taskbar. Its text is comparable in size to the clock. Fresh readings below 20% appear red, other fresh readings appear green, and older readings appear gray. **Show on taskbar** in the tray menu controls its visibility. The indicator follows the visible taskbar and stays hidden while the taskbar is auto-hidden or a fullscreen app is in use. Hover over the separate tray icon for the mouse name and reading status.
+The tray icon shows a sideways mouse above the percentage. Fresh readings below 20% appear red, other fresh readings appear green, and older readings appear gray. Hover for the device name, reading status, and charging state when available. If Windows puts the icon under the arrow next to the clock, drag it into view or enable **MouseCharge** in Windows taskbar settings.
 
 To update, exit MouseCharge, get the updated source, and rerun the installer. The installer selects your Windows architecture by default. Use `-Runtime` to specify it or `-SkipBuild` to install the executable already present under `artifacts`.
 

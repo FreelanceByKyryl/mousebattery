@@ -9,7 +9,6 @@ public sealed class AppSettings
     public int LowBatteryThreshold { get; set; } = 15;
     public bool NotificationsEnabled { get; set; } = true;
     public bool StartWithWindows { get; set; }
-    public bool TaskbarIndicatorVisible { get; set; } = true;
 
     public AppSettings Copy() => (AppSettings)MemberwiseClone();
 

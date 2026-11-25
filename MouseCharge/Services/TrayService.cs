@@ -7,9 +7,8 @@ namespace MouseCharge.Services;
 internal sealed class TrayService : IDisposable
 {
     private readonly Forms.NotifyIcon _icon;
-    private readonly Icon _image;
+    private readonly Icon _defaultImage;
     private readonly Forms.ContextMenuStrip _menu;
-    private readonly Forms.ToolStripMenuItem _showIndicator;
     private readonly Forms.ToolStripMenuItem _selection;
     private readonly Forms.ToolStripMenuItem _startup;
     private readonly Action<string?> _selectMouse;
@@ -17,12 +16,11 @@ internal sealed class TrayService : IDisposable
     private (int? Percentage, bool Stale) _indicator;
 
     public TrayService(
-        Action toggleIndicator, Action refresh, Action<string?> selectMouse,
+        Action refresh, Action<string?> selectMouse,
         Action settings, Action diagnostics, Action startup, Action exit)
     {
         _selectMouse = selectMouse;
         _menu = new Forms.ContextMenuStrip();
-        _showIndicator = AddItem("Show on taskbar", toggleIndicator);
         AddItem("Refresh battery", refresh);
         _selection = new Forms.ToolStripMenuItem("Select mouse");
         _menu.Items.Add(_selection);
@@ -34,9 +32,9 @@ internal sealed class TrayService : IDisposable
         AddItem("Exit", exit);
         SetDevices([], null);
 
-        if (TrayBatteryIcon.Create(null, stale: false) is { } emptyGauge)
+        if (TrayBatteryIcon.Create(null, stale: false) is { } emptyReading)
         {
-            _image = emptyGauge;
+            _defaultImage = emptyReading;
         }
         else
         {
@@ -44,28 +42,19 @@ internal sealed class TrayService : IDisposable
                 new Uri("pack://application:,,,/Assets/MouseCharge.ico"));
             using var stream = resource?.Stream;
             using var icon = stream is null ? null : new Icon(stream);
-            _image = (Icon)(icon ?? SystemIcons.Application).Clone();
+            _defaultImage = (Icon)(icon ?? SystemIcons.Application).Clone();
         }
 
         _icon = new Forms.NotifyIcon
         {
-            Icon = _image,
+            Icon = _defaultImage,
             ContextMenuStrip = _menu,
             Text = "MouseCharge · Looking for mice…",
             Visible = true,
         };
-        _icon.MouseClick += (_, e) =>
-        {
-            if (e.Button == Forms.MouseButtons.Left)
-                toggleIndicator();
-        };
     }
 
-    public void SetState(bool visible, bool startup)
-    {
-        _showIndicator.Checked = visible;
-        _startup.Checked = startup;
-    }
+    public void SetStartupEnabled(bool enabled) => _startup.Checked = enabled;
 
     public void SetDevices(IReadOnlyList<(string Id, string Name)> devices, string? selectedId)
     {
@@ -80,11 +69,11 @@ internal sealed class TrayService : IDisposable
             AddDevice(device.Name, device.Id, selectedId);
     }
 
-    public void SetBattery(string name, int? percent, bool approximate, bool stale)
+    public void SetBattery(string name, int? percent, bool approximate, bool stale, bool charging)
     {
         string amount = percent is int value
             ? (approximate ? "≈" : "") + value.ToString(CultureInfo.InvariantCulture) + "%" +
-              (stale ? " (outdated)" : "")
+              (stale ? " (outdated)" : charging ? " · Charging" : "")
             : "Battery unavailable";
         // The Windows notification area tooltip is limited to 63 UTF-16 code units.
         const string prefix = "MouseCharge · ";
@@ -104,7 +93,7 @@ internal sealed class TrayService : IDisposable
             return;
 
         var image = percent.HasValue ? TrayBatteryIcon.Create(percent, stale) : null;
-        _icon.Icon = image ?? _image;
+        _icon.Icon = image ?? _defaultImage;
         _batteryImage?.Dispose();
         _batteryImage = image;
         _indicator = indicator;
@@ -119,7 +108,7 @@ internal sealed class TrayService : IDisposable
         _icon.Dispose();
         _menu.Dispose();
         _batteryImage?.Dispose();
-        _image.Dispose();
+        _defaultImage.Dispose();
     }
 
     private Forms.ToolStripMenuItem AddItem(string label, Action handler)

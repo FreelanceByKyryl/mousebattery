@@ -1,14 +1,11 @@
-using System.Drawing;
+using System.Text.Json;
 using MouseCharge.Core;
 using MouseCharge.Devices;
 
 var tests = new (string Name, Action Run)[]
 {
     ("Default settings and local JSON round trip", SettingsRoundTrip),
-    ("Existing widget settings default to a visible taskbar indicator", UpgradeWidgetSettings),
-    ("Bottom taskbar readout fits inline beside the notification area", BottomTaskbarDock),
-    ("Top taskbar dock uses physical pixels on a scaled negative monitor", ScaledTaskbarDock),
-    ("Taskbar dock handles a vertical bar and hides when there is no safe fit", TaskbarDockFallback),
+    ("Legacy widget settings preserve device, notification and startup preferences", UpgradeWidgetSettings),
     ("Old, invalid and corrupted settings", InvalidSettings),
     ("Last known reading persists separately for each mouse", BatteryRoundTrip),
     ("Low battery notification is latched below the threshold", BatteryWarnings),
@@ -45,7 +42,6 @@ static void SettingsRoundTrip()
     Equal(60, settings.RefreshSeconds);
     Equal(15, settings.LowBatteryThreshold);
     Equal(true, settings.NotificationsEnabled);
-    Equal(true, settings.TaskbarIndicatorVisible);
     Equal(null, store.LoadIssue);
 
     var edited = settings.Copy();
@@ -55,19 +51,16 @@ static void SettingsRoundTrip()
     edited.RefreshSeconds = 120;
     edited.LowBatteryThreshold = 22;
     edited.StartWithWindows = true;
-    edited.TaskbarIndicatorVisible = false;
     store.Save(edited);
 
     var loaded = new SettingsStore(data.Path).Load();
     Equal(null, settings.DeviceId);
-    Equal(true, settings.TaskbarIndicatorVisible);
     Equal("mouse-id", loaded.DeviceId);
     Equal("automatic-mouse-id", loaded.LastAutomaticDeviceId);
     Equal("Automatic mouse", loaded.LastAutomaticDeviceName);
     Equal(120, loaded.RefreshSeconds);
     Equal(22, loaded.LowBatteryThreshold);
     Equal(true, loaded.StartWithWindows);
-    Equal(false, loaded.TaskbarIndicatorVisible);
 
     edited.NotificationsEnabled = false;
     store.Save(edited);
@@ -78,61 +71,26 @@ static void SettingsRoundTrip()
 static void UpgradeWidgetSettings()
 {
     using var data = new TestDirectory();
-    File.WriteAllText(Path.Combine(data.Path, "settings.json"), """
-        {"dockToTaskbar":false,"taskbarWidgetVisible":false,"widgetVisible":false,
+    var path = Path.Combine(data.Path, "settings.json");
+    File.WriteAllText(path, """
+        {"taskbarIndicatorVisible":false,"dockToTaskbar":false,"taskbarWidgetVisible":false,"widgetVisible":false,
          "desktopX":-1050,"desktopY":420,"deviceId":"mouse-id","refreshSeconds":120,
          "lowBatteryThreshold":20,"notificationsEnabled":false,"startWithWindows":true}
         """);
     var store = new SettingsStore(data.Path);
     var settings = store.Load();
-    Equal(true, settings.TaskbarIndicatorVisible);
     Equal("mouse-id", settings.DeviceId);
     Equal(120, settings.RefreshSeconds);
     Equal(20, settings.LowBatteryThreshold);
     Equal(false, settings.NotificationsEnabled);
     Equal(true, settings.StartWithWindows);
-}
 
-static void BottomTaskbarDock()
-{
-    var monitor = new Rectangle(0, 0, 1920, 1080);
-    var bar = new Rectangle(0, 1032, 1920, 48);
-    var tray = new Rectangle(1612, 1032, 308, 48);
-
-    var point = TaskbarPlacement.Find(monitor, bar, tray, 62, 26, 96);
-    Equal<(int X, int Y)?>((1544, 1043), point);
-    var readout = new Rectangle(point!.Value.X, point.Value.Y, 62, 26);
-    Equal(true, bar.Contains(readout));
-    Equal(6, tray.Left - readout.Right);
-}
-
-static void ScaledTaskbarDock()
-{
-    var monitor = new Rectangle(-1920, -1080, 1920, 1080);
-    var bar = new Rectangle(-1920, -1080, 1920, 72);
-    var tray = new Rectangle(-420, -1080, 420, 72);
-
-    var point = TaskbarPlacement.Find(monitor, bar, tray, 62, 26, 144);
-    Equal<(int X, int Y)?>((-522, -1064), point);
-    Equal(true, bar.Contains(new Rectangle(point!.Value.X, point.Value.Y, 93, 39)));
-}
-
-static void TaskbarDockFallback()
-{
-    var monitor = new Rectangle(0, 0, 1000, 800);
-    var verticalBar = new Rectangle(920, 0, 80, 800);
-    var hiddenBar = new Rectangle(0, 798, 1000, 48);
-    var partlyHiddenBar = new Rectangle(0, 766, 1000, 48);
-    var thinBar = new Rectangle(0, 774, 1000, 26);
-    var bottomBar = new Rectangle(0, 752, 1000, 48);
-    var wideTray = new Rectangle(40, 752, 960, 48);
-
-    Equal<(int X, int Y)?>((929, 568), TaskbarPlacement.Find(monitor, verticalBar, null, 62, 26, 96));
-    Equal<(int X, int Y)?>((668, 763), TaskbarPlacement.Find(monitor, bottomBar, null, 62, 26, 96));
-    Equal<(int X, int Y)?>(null, TaskbarPlacement.Find(monitor, hiddenBar, null, 62, 26, 96));
-    Equal<(int X, int Y)?>(null, TaskbarPlacement.Find(monitor, partlyHiddenBar, null, 62, 26, 96));
-    Equal<(int X, int Y)?>(null, TaskbarPlacement.Find(monitor, thinBar, null, 62, 26, 96));
-    Equal<(int X, int Y)?>(null, TaskbarPlacement.Find(monitor, bottomBar, wideTray, 62, 26, 96));
+    store.Save(settings);
+    using var saved = JsonDocument.Parse(File.ReadAllText(path));
+    Equal(false, saved.RootElement.TryGetProperty("taskbarIndicatorVisible", out _));
+    Equal(false, saved.RootElement.TryGetProperty("dockToTaskbar", out _));
+    Equal(false, saved.RootElement.TryGetProperty("taskbarWidgetVisible", out _));
+    Equal(false, saved.RootElement.TryGetProperty("widgetVisible", out _));
 }
 
 static void InvalidSettings()
@@ -148,7 +106,6 @@ static void InvalidSettings()
     Equal(60, loaded.RefreshSeconds);
     Equal(100, loaded.LowBatteryThreshold);
     Equal(true, loaded.NotificationsEnabled);
-    Equal(true, loaded.TaskbarIndicatorVisible);
 
     File.WriteAllText(path, "{");
     loaded = store.Load();

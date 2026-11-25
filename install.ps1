@@ -87,4 +87,4 @@ if ($StartWithWindows) {
     $launch.ArgumentList = '--start-with-windows'
 }
 Start-Process @launch
-Write-Output "Installed MouseCharge to $installedExe. The notification-area menu controls the taskbar indicator."
+Write-Output "Installed MouseCharge to $installedExe. Look for the battery percentage in the notification area."

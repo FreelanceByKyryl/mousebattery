@@ -48,7 +48,6 @@ internal partial class SettingsWindow : Window
         };
         Threshold.Value = settings.LowBatteryThreshold;
         Notifications.IsChecked = settings.NotificationsEnabled;
-        TaskbarIndicatorChoice.IsChecked = settings.TaskbarIndicatorVisible;
         StartWithWindowsChoice.IsChecked = settings.StartWithWindows;
     }
 
@@ -59,7 +58,6 @@ internal partial class SettingsWindow : Window
         _settings.RefreshSeconds = int.Parse((string)refresh.Tag, CultureInfo.InvariantCulture);
         _settings.LowBatteryThreshold = (int)Threshold.Value;
         _settings.NotificationsEnabled = Notifications.IsChecked == true;
-        _settings.TaskbarIndicatorVisible = TaskbarIndicatorChoice.IsChecked == true;
         _settings.StartWithWindows = StartWithWindowsChoice.IsChecked == true;
         _settings.Normalize();
         DialogResult = true;

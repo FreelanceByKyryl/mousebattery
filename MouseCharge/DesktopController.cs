@@ -19,8 +19,6 @@ internal sealed class DesktopController : IDisposable
     private readonly CancellationTokenSource _lifetime = new();
     private readonly SemaphoreSlim _deviceAccess = new(1, 1);
     private readonly DispatcherTimer _poll;
-    private readonly DispatcherTimer _taskbarPlacement;
-    private readonly TaskbarIndicatorWindow _indicator;
     private readonly TrayService _tray;
     private readonly BatteryNotificationService _notifications;
     private readonly AppSettings _settings;
@@ -46,15 +44,9 @@ internal sealed class DesktopController : IDisposable
 
         _poll = new DispatcherTimer(DispatcherPriority.Background, app.Dispatcher);
         _poll.Tick += (_, _) => QueueRefresh();
-        _taskbarPlacement = new DispatcherTimer(DispatcherPriority.Background, app.Dispatcher)
-        {
-            Interval = TimeSpan.FromMilliseconds(750)
-        };
-        _taskbarPlacement.Tick += (_, _) => RefreshIndicatorPlacement();
-        _indicator = new TaskbarIndicatorWindow();
 
         _tray = new TrayService(
-            ToggleIndicator, () => QueueRefresh(followUpIfBusy: true),
+            () => QueueRefresh(followUpIfBusy: true),
             SelectDevice, ShowSettings, ShowDiagnostics, ToggleStartup, Exit);
         _notifications = new BatteryNotificationService(_history, _tray);
     }
@@ -67,8 +59,9 @@ internal sealed class DesktopController : IDisposable
             SaveSettings();
         }
 
-        Render(looking: true);
-        ApplyPreferences();
+        _tray.SetStartupEnabled(_settings.StartWithWindows);
+        _poll.Interval = TimeSpan.FromSeconds(_settings.RefreshSeconds);
+        Render();
         SystemEvents.PowerModeChanged += OnPowerModeChanged;
         QueueRefresh();
     }
@@ -81,7 +74,6 @@ internal sealed class DesktopController : IDisposable
         _disposed = true;
         SystemEvents.PowerModeChanged -= OnPowerModeChanged;
         _poll.Stop();
-        _taskbarPlacement.Stop();
         _lifetime.Cancel();
         _tray.Dispose();
         _lifetime.Dispose();
@@ -207,18 +199,10 @@ internal sealed class DesktopController : IDisposable
             .ThenByDescending(device => device.ConnectionType is "Bluetooth" or "Bluetooth LE" or "USB receiver");
     }
 
-    private void Render(bool looking = false)
+    private void Render()
     {
         string name = _currentDevice?.Name
             ?? (_settings.DeviceId is null ? _settings.LastAutomaticDeviceName ?? "Wireless mouse" : "Selected mouse");
-        string status = looking ? "Looking for mice…"
-            : _suspending ? "Suspended"
-            : _refreshIssue is not null ? "Refresh unavailable"
-            : _currentDevice is null ? "Mouse not detected"
-            : !_currentDevice.IsConnected ? "Disconnected"
-            : _currentDevice.ConnectionType == "USB receiver" ? "Receiver connected"
-            : $"{_currentDevice.ConnectionType} · Connected";
-
         bool connected = !_suspending && _refreshIssue is null && _currentDevice?.IsConnected == true;
         var fresh = connected ? _scan?.Reading : null;
         string? id = _currentDevice?.Id ?? _settings.DeviceId ?? _settings.LastAutomaticDeviceId;
@@ -226,9 +210,7 @@ internal sealed class DesktopController : IDisposable
         int? percent = fresh?.Percentage ?? previous?.Percentage;
         bool approximate = fresh?.IsApproximate ?? previous?.IsApproximate ?? false;
         bool outdated = fresh is null && previous is not null;
-        _indicator.SetReading(name, status, percent, approximate, outdated, fresh?.IsCharging,
-            fresh?.ReadAt ?? previous?.ReadAt);
-        _tray.SetBattery(name, percent, approximate, outdated);
+        _tray.SetBattery(name, percent, approximate, outdated, charging: fresh?.IsCharging == true);
     }
 
     private IReadOnlyList<(string Id, string Name)> DeviceChoices()
@@ -264,46 +246,6 @@ internal sealed class DesktopController : IDisposable
         Render();
     }
 
-    private void ApplyPreferences()
-    {
-        _poll.Interval = TimeSpan.FromSeconds(_settings.RefreshSeconds);
-        UpdateIndicatorVisibility();
-    }
-
-    private void ToggleIndicator()
-    {
-        _settings.TaskbarIndicatorVisible = !_settings.TaskbarIndicatorVisible;
-        UpdateIndicatorVisibility();
-        SaveSettings();
-    }
-
-    private void UpdateIndicatorVisibility()
-    {
-        _taskbarPlacement.IsEnabled = _settings.TaskbarIndicatorVisible && !_suspending;
-        RefreshIndicatorPlacement();
-        UpdateTrayState();
-    }
-
-    private void RefreshIndicatorPlacement()
-    {
-        var placement = _settings.TaskbarIndicatorVisible && !_suspending
-            ? TaskbarDock.FindPlacement(_indicator.Width, _indicator.Height)
-            : null;
-        if (placement is { } point)
-        {
-            _indicator.PlaceOnTaskbar(point.X, point.Y, point.TaskbarHandle);
-            if (!_indicator.IsVisible)
-                _indicator.Show();
-        }
-        else if (_indicator.IsVisible)
-        {
-            _indicator.Hide();
-        }
-    }
-
-    private void UpdateTrayState() =>
-        _tray.SetState(_settings.TaskbarIndicatorVisible, _settings.StartWithWindows);
-
     private void Exit()
     {
         Dispose();
@@ -313,7 +255,6 @@ internal sealed class DesktopController : IDisposable
     private void ToggleStartup()
     {
         SetStartup(!_settings.StartWithWindows);
-        UpdateTrayState();
         SaveSettings();
     }
 
@@ -334,6 +275,7 @@ internal sealed class DesktopController : IDisposable
         {
             StartupRegistration.SetEnabled(enabled);
             _settings.StartWithWindows = enabled;
+            _tray.SetStartupEnabled(enabled);
             _startupIssue = null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException or InvalidOperationException)
@@ -378,9 +320,8 @@ internal sealed class DesktopController : IDisposable
             _settings.RefreshSeconds = draft.RefreshSeconds;
             _settings.LowBatteryThreshold = draft.LowBatteryThreshold;
             _settings.NotificationsEnabled = draft.NotificationsEnabled;
-            _settings.TaskbarIndicatorVisible = draft.TaskbarIndicatorVisible;
             SetStartup(draft.StartWithWindows);
-            ApplyPreferences();
+            _poll.Interval = TimeSpan.FromSeconds(_settings.RefreshSeconds);
             if (previousId != draft.DeviceId)
                 ResetSelection();
 
@@ -438,8 +379,6 @@ internal sealed class DesktopController : IDisposable
             if (_disposed)
                 return;
             _suspending = e.Mode == PowerModes.Suspend;
-            UpdateIndicatorVisibility();
-
             if (_suspending)
             {
                 _poll.Stop();
