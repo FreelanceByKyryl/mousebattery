@@ -1,52 +1,65 @@
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Security;
+using Microsoft.Win32;
+using Forms = System.Windows.Forms;
 
 namespace MouseCharge.Services;
 
 internal static class TrayBatteryIcon
 {
-    private const int Size = 16;
-    private const int CaseWidth = 15;
-    private const int CaseTop = 2;
-    private const int CaseBottom = 13;
-    private const int ReadingTop = 4;
+    private const int DesignSize = 16;
+    private const int Supersampling = 8;
 
-    private static readonly string[][] Digits =
-    [
-        [".##.", "#..#", "#..#", "#..#", "#..#", "#..#", ".##."],
-        [".#", "##", ".#", ".#", ".#", ".#", ".#"],
-        [".##.", "#..#", "...#", "..#.", ".#..", "#...", "####"],
-        ["###.", "...#", "...#", ".##.", "...#", "...#", "###."],
-        ["#..#", "#..#", "#..#", "####", "...#", "...#", "...#"],
-        ["####", "#...", "#...", "###.", "...#", "...#", "###."],
-        [".##.", "#...", "#...", "###.", "#..#", "#..#", ".##."],
-        ["####", "...#", "..#.", "..#.", ".#..", ".#..", ".#.."],
-        [".##.", "#..#", "#..#", ".##.", "#..#", "#..#", ".##."],
-        [".##.", "#..#", "#..#", ".###", "...#", "...#", ".##."]
-    ];
+    private static readonly Palette Light = new(
+        Color.FromArgb(0x14, 0x1b, 0x22), Color.FromArgb(0x4b, 0x5c, 0x6e),
+        Color.FromArgb(0xe1, 0xe7, 0xee), Color.FromArgb(0xf4, 0xf6, 0xf9),
+        Color.FromArgb(0x52, 0x66, 0x78), Color.FromArgb(0x79, 0x90, 0xa5));
 
-    private static readonly string[] Percent = ["#.#", "..#", "..#", ".#.", "#..", "#..", "#.#"];
-    private static readonly string[] CompactOne = ["#", "#", "#", "#", "#", "#", "#"];
-    private static readonly string[] CompactZero = [".#.", "#.#", "#.#", "#.#", "#.#", "#.#", ".#."];
-    private static readonly string[] Unavailable = ["......", "......", "......", "######", "......", "......", "......"];
-
-    private static readonly Color Outline = Color.FromArgb(128, 147, 172);
-    private static readonly Color Interior = Color.FromArgb(21, 31, 44);
-    private static readonly Color Green = Color.FromArgb(105, 236, 164);
-    private static readonly Color Red = Color.FromArgb(255, 132, 148);
-    private static readonly Color Gray = Color.FromArgb(193, 205, 223);
+    private static readonly Palette Dark = new(
+        Color.FromArgb(0xf3, 0xf6, 0xf9), Color.FromArgb(0xb6, 0xc4, 0xd1),
+        Color.FromArgb(0x34, 0x41, 0x54), Color.FromArgb(0x22, 0x2e, 0x3d),
+        Color.FromArgb(0xb5, 0xc4, 0xd2), Color.FromArgb(0x84, 0x96, 0xa8));
 
     /// <summary>The caller owns the returned icon. Missing readings are drawn as a dash.</summary>
     public static Icon? Create(int? percent, bool stale)
     {
-        bool available = percent is >= 0 and <= 100;
-        var ink = stale || !available ? Gray : percent < 20 ? Red : Green;
+        int? level = percent is >= 0 and <= 100 ? percent : null;
+        bool highContrast = Forms.SystemInformation.HighContrast;
+        var palette = highContrast
+            ? new Palette(SystemColors.WindowText, SystemColors.WindowText, SystemColors.GrayText,
+                SystemColors.Window, SystemColors.GrayText, SystemColors.GrayText)
+            : IsLightSystemTheme() ? Light : Dark;
+        var size = Forms.SystemInformation.SmallIconSize;
+        if (size.Width <= 0 || size.Height <= 0)
+            size = new Size(DesignSize, DesignSize);
 
-        using var bitmap = new Bitmap(Size, Size, PixelFormat.Format32bppArgb);
-        DrawCase(bitmap);
-        DrawReading(bitmap, available ? percent : null, ink);
+        using var artwork = new Bitmap(size.Width * Supersampling, size.Height * Supersampling,
+            PixelFormat.Format32bppPArgb);
+        using (var graphics = Graphics.FromImage(artwork))
+        {
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            graphics.ScaleTransform(artwork.Width / (float)DesignSize, artwork.Height / (float)DesignSize);
+            if (highContrast)
+            {
+                using var background = new SolidBrush(SystemColors.Window);
+                FillRoundedRectangle(graphics, background, new RectangleF(0, 0, DesignSize, 9.4f), 0.8f);
+            }
+            DrawReading(graphics, level, stale || level is null ? palette.MutedText : palette.Text);
+            DrawGauge(graphics, level, stale, highContrast, palette);
+        }
+
+        using var bitmap = new Bitmap(size.Width, size.Height, PixelFormat.Format32bppArgb);
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.CompositingMode = CompositingMode.SourceCopy;
+            graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            graphics.DrawImage(artwork, new Rectangle(Point.Empty, size));
+        }
 
         var handle = bitmap.GetHicon();
         if (handle == IntPtr.Zero)
@@ -63,50 +76,94 @@ internal static class TrayBatteryIcon
         }
     }
 
-    private static void DrawCase(Bitmap bitmap)
+    private static void DrawReading(Graphics graphics, int? percent, Color ink)
     {
-        for (int x = 1; x < CaseWidth - 1; x++)
+        using var brush = new SolidBrush(ink);
+        if (percent is not int value)
         {
-            bitmap.SetPixel(x, CaseTop, Outline);
-            bitmap.SetPixel(x, CaseBottom, Outline);
+            FillRoundedRectangle(graphics, brush, new RectangleF(5.5f, 4.4f, 5f, 0.8f), 0.4f);
+            return;
         }
 
-        for (int y = CaseTop + 1; y < CaseBottom; y++)
-        {
-            bitmap.SetPixel(0, y, Outline);
-            bitmap.SetPixel(CaseWidth - 1, y, Outline);
-            for (int x = 1; x < CaseWidth - 1; x++)
-                bitmap.SetPixel(x, y, Interior);
-        }
+        using var font = new Font("Segoe UI", 12f, FontStyle.Regular, GraphicsUnit.Pixel);
+        using var family = font.FontFamily;
+        using var format = StringFormat.GenericTypographic;
+        using var path = new GraphicsPath();
+        path.AddString(value.ToString(CultureInfo.InvariantCulture) + "%", family, (int)font.Style,
+            font.Size, PointF.Empty, format);
 
-        for (int y = 6; y <= 9; y++)
-            bitmap.SetPixel(CaseWidth, y, Outline);
+        // Fit the actual ink bounds, keeping the whole 100% label inside a native 16px icon.
+        var bounds = path.GetBounds();
+        float sy = 8.4f / bounds.Height;
+        float sx = Math.Min(sy, 15.7f / bounds.Width);
+        using var fit = new Matrix(sx, 0, 0, sy,
+            (DesignSize - bounds.Width * sx) / 2 - bounds.Left * sx, 0.5f - bounds.Top * sy);
+        path.Transform(fit);
+        graphics.FillPath(brush, path);
     }
 
-    private static void DrawReading(Bitmap bitmap, int? percent, Color ink)
+    private static void DrawGauge(Graphics graphics, int? percent, bool stale, bool highContrast, Palette palette)
     {
-        string[][] glyphs = percent switch
-        {
-            null => [Unavailable],
-            100 => [CompactOne, CompactZero, CompactZero, Percent],
-            int value => [.. value.ToString(CultureInfo.InvariantCulture).Select(digit => Digits[digit - '0']), Percent]
-        };
-        int width = glyphs.Sum(glyph => glyph[0].Length + 1) - 1;
-        int left = (CaseWidth - width) / 2;
+        using var outline = new SolidBrush(palette.Outline);
+        using var interior = new SolidBrush(palette.Interior);
+        using var track = new SolidBrush(palette.Track);
+        Color charge = stale ? palette.MutedCharge : highContrast
+            ? SystemColors.Highlight : ChargeColor(percent.GetValueOrDefault());
+        using var fill = new SolidBrush(charge);
 
-        foreach (var glyph in glyphs)
+        FillRoundedRectangle(graphics, outline, new RectangleF(0.55f, 10.1f, 13.55f, 5.5f), 1.6f);
+        FillRoundedRectangle(graphics, interior, new RectangleF(1.38f, 10.93f, 11.89f, 3.84f), 0.77f);
+        FillRoundedRectangle(graphics, outline, new RectangleF(14.35f, 11.7f, 1.3f, 2.4f), 0.5f);
+        for (int step = 0; step < 5; step++)
         {
-            for (int y = 0; y < glyph.Length; y++)
+            float left = 1.85f + step * 2.23f;
+            FillRoundedRectangle(graphics, track, new RectangleF(left, 11.55f, 1.72f, 2.7f), 0.32f);
+            float fraction = Math.Clamp((percent.GetValueOrDefault() - step * 20) / 20f, 0, 1);
+            if (fraction > 0)
             {
-                for (int x = 0; x < glyph[y].Length; x++)
-                {
-                    if (glyph[y][x] == '#')
-                        bitmap.SetPixel(left + x, ReadingTop + y, ink);
-                }
+                FillRoundedRectangle(graphics, fill,
+                    new RectangleF(left, 11.55f, 1.72f * fraction, 2.7f), 0.32f * fraction);
             }
-            left += glyph[0].Length + 1;
         }
     }
+
+    private static Color ChargeColor(int percent) => percent switch
+    {
+        >= 90 => Color.FromArgb(0x59, 0xac, 0x42),
+        >= 70 => Color.FromArgb(0x8c, 0xbe, 0x50),
+        >= 50 => Color.FromArgb(0xbd, 0xbe, 0x3d),
+        >= 30 => Color.FromArgb(0xd3, 0x9b, 0x41),
+        _ => Color.FromArgb(0xe2, 0x6c, 0x5e)
+    };
+
+    private static void FillRoundedRectangle(Graphics graphics, Brush brush, RectangleF bounds, float radius)
+    {
+        float diameter = Math.Min(radius * 2, Math.Min(bounds.Width, bounds.Height));
+        using var path = new GraphicsPath();
+        path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 180, 90);
+        path.AddArc(bounds.Right - diameter, bounds.Top, diameter, diameter, 270, 90);
+        path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90);
+        path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90);
+        path.CloseFigure();
+        graphics.FillPath(brush, path);
+    }
+
+    private static bool IsLightSystemTheme()
+    {
+        try
+        {
+            using var personalize = Registry.CurrentUser.OpenSubKey(
+                @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+            return personalize?.GetValue("SystemUsesLightTheme") is 1;
+        }
+        catch (Exception error) when (error is SecurityException or UnauthorizedAccessException or IOException)
+        {
+            return false;
+        }
+    }
+
+    private sealed record Palette(Color Text, Color Outline, Color Track, Color Interior,
+        Color MutedText, Color MutedCharge);
 
     [DllImport("user32.dll", ExactSpelling = true)]
     [return: MarshalAs(UnmanagedType.Bool)]

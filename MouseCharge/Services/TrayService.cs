@@ -1,5 +1,7 @@
 using System.Drawing;
 using System.Globalization;
+using System.Windows.Threading;
+using Microsoft.Win32;
 using Forms = System.Windows.Forms;
 
 namespace MouseCharge.Services;
@@ -12,8 +14,10 @@ internal sealed class TrayService : IDisposable
     private readonly Forms.ToolStripMenuItem _selection;
     private readonly Forms.ToolStripMenuItem _startup;
     private readonly Action<string?> _selectMouse;
+    private readonly Dispatcher _dispatcher = Dispatcher.CurrentDispatcher;
     private Icon? _batteryImage;
     private (int? Percentage, bool Stale) _indicator;
+    private bool _disposed;
 
     public TrayService(
         Action refresh, Action<string?> selectMouse,
@@ -32,26 +36,21 @@ internal sealed class TrayService : IDisposable
         AddItem("Exit", exit);
         SetDevices([], null);
 
-        if (TrayBatteryIcon.Create(null, stale: false) is { } emptyReading)
-        {
-            _defaultImage = emptyReading;
-        }
-        else
-        {
-            var resource = System.Windows.Application.GetResourceStream(
-                new Uri("pack://application:,,,/Assets/MouseCharge.ico"));
-            using var stream = resource?.Stream;
-            using var icon = stream is null ? null : new Icon(stream);
-            _defaultImage = (Icon)(icon ?? SystemIcons.Application).Clone();
-        }
+        var resource = System.Windows.Application.GetResourceStream(
+            new Uri("pack://application:,,,/Assets/MouseCharge.ico"));
+        using var stream = resource?.Stream;
+        using var icon = stream is null ? null : new Icon(stream);
+        _defaultImage = (Icon)(icon ?? SystemIcons.Application).Clone();
 
         _icon = new Forms.NotifyIcon
         {
-            Icon = _defaultImage,
             ContextMenuStrip = _menu,
             Text = "MouseCharge · Looking for mice…",
-            Visible = true,
         };
+        RefreshBatteryIcon();
+        _icon.Visible = true;
+        SystemEvents.UserPreferenceChanged += OnAppearanceChanged;
+        SystemEvents.DisplaySettingsChanged += OnAppearanceChanged;
     }
 
     public void SetStartupEnabled(bool enabled) => _startup.Checked = enabled;
@@ -92,18 +91,36 @@ internal sealed class TrayService : IDisposable
         if (indicator == _indicator)
             return;
 
-        var image = percent.HasValue ? TrayBatteryIcon.Create(percent, stale) : null;
+        _indicator = indicator;
+        RefreshBatteryIcon();
+    }
+
+    private void RefreshBatteryIcon()
+    {
+        var image = TrayBatteryIcon.Create(_indicator.Percentage, _indicator.Stale);
         _icon.Icon = image ?? _defaultImage;
         _batteryImage?.Dispose();
         _batteryImage = image;
-        _indicator = indicator;
     }
+
+    private void OnAppearanceChanged(object? sender, EventArgs args) =>
+        _dispatcher.InvokeAsync(() =>
+        {
+            if (!_disposed)
+                RefreshBatteryIcon();
+        }, DispatcherPriority.Background);
 
     public void ShowWarning(string title, string message) =>
         _icon.ShowBalloonTip(5000, title, message, Forms.ToolTipIcon.Warning);
 
     public void Dispose()
     {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        SystemEvents.UserPreferenceChanged -= OnAppearanceChanged;
+        SystemEvents.DisplaySettingsChanged -= OnAppearanceChanged;
         _icon.Visible = false;
         _icon.Dispose();
         _menu.Dispose();

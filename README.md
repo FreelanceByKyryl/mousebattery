@@ -52,7 +52,7 @@ If MouseCharge is open, choose **Exit** from its notification-area menu. In Powe
 
 The installer builds and copies the standalone executable to `%LOCALAPPDATA%\Programs\MouseCharge\MouseCharge.exe`, creates a Start menu shortcut, and starts MouseCharge. You can close PowerShell after installation. The `-StartWithWindows` switch registers the installed copy to launch when you sign in. You can change startup later in the tray menu.
 
-The tray icon shows the percentage inside a battery outline. Fresh readings below 20% appear red, other fresh readings appear green, and older readings appear gray. Hover for the device name, reading status, and charging state when available. If Windows puts the icon under the arrow next to the clock, drag it into view or enable **MouseCharge** in Windows taskbar settings.
+The tray icon shows a regular-weight percentage above a five-segment battery gauge. The percentage follows the Windows taskbar theme. The gauge changes fill and color with charge, and older readings appear gray. Hover for the device name, reading status, and charging state when available. If Windows puts the icon under the arrow next to the clock, drag it into view or enable **MouseCharge** in Windows taskbar settings.
 
 To update, exit MouseCharge, get the updated source, and rerun the installer. The installer selects your Windows architecture by default. Use `-Runtime` to specify it or `-SkipBuild` to install the executable already present under `artifacts`.
 
