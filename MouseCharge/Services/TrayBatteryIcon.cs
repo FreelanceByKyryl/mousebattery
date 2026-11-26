@@ -14,6 +14,8 @@ internal static class TrayBatteryIcon
     private const int DesignSize = 16;
     private const int Supersampling = 8;
     private const int DigitHeight = 12;
+    private const int GaugeWidth = 3;
+    private const int ReadingLeft = GaugeWidth + 1;
 
     private static readonly Palette Light = new(
         Color.Black, Color.FromArgb(0xaf, 0xb7, 0xbf),
@@ -80,14 +82,15 @@ internal static class TrayBatteryIcon
         using var brush = new SolidBrush(ink);
         if (percent is not int value)
         {
-            FillRoundedRectangle(graphics, brush, new RectangleF(5, 5, 6, 1.5f), 0.5f);
+            FillRoundedRectangle(graphics, brush,
+                new RectangleF(ReadingLeft + 3, 7, 6, 1.5f), 0.5f);
             return;
         }
 
         string digits = value.ToString(CultureInfo.InvariantCulture);
-        int markWidth = digits.Length == 3 ? 3 : 4;
-        int labelWidth = digits.Sum(digit => DigitWidth(digit, digits.Length) + 1) + markWidth;
-        int left = (DesignSize - labelWidth) / 2;
+        int digitsWidth = digits.Sum(digit => DigitWidth(digit, digits.Length)) + digits.Length - 1;
+        int left = ReadingLeft + (DesignSize - ReadingLeft - digitsWidth) / 2;
+        int right = left + digitsWidth;
         using var font = new Font("Segoe UI", 12f, FontStyle.Regular, GraphicsUnit.Pixel);
         using var family = font.FontFamily;
         using var format = StringFormat.GenericTypographic;
@@ -109,11 +112,11 @@ internal static class TrayBatteryIcon
             left += width + 1;
         }
 
-        // A smaller percent sign leaves the full height and most of the width for the reading.
+        // The unit sits below the last digit so even 100 keeps its full digit width.
         using var slash = new Pen(ink, 1f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
-        graphics.DrawLine(slash, left + 0.5f, 7.5f, left + markWidth - 0.5f, 2.5f);
-        graphics.FillEllipse(brush, left, 2, 1.35f, 1.5f);
-        graphics.FillEllipse(brush, left + markWidth - 1.35f, 6.5f, 1.35f, 1.5f);
+        graphics.DrawLine(slash, right - 4.5f, 15.5f, right - 0.5f, 12.75f);
+        graphics.FillEllipse(brush, right - 5, 12.4f, 1.4f, 1.4f);
+        graphics.FillEllipse(brush, right - 1.4f, 14.6f, 1.4f, 1.4f);
     }
 
     private static int DigitWidth(char digit, int count) => count switch
@@ -130,16 +133,16 @@ internal static class TrayBatteryIcon
             ? SystemColors.Highlight : ChargeColor(percent.GetValueOrDefault());
         using var fill = new SolidBrush(charge);
 
-        graphics.FillRectangle(track, 15, 14, 1, 1);
         for (int step = 0; step < 5; step++)
         {
-            int left = step * 3;
-            FillRoundedRectangle(graphics, track, new RectangleF(left, 13, 2, 3), 0.4f);
+            int bottom = DesignSize - 1 - step * 3;
+            FillRoundedRectangle(graphics, track, new RectangleF(0, bottom - 2, GaugeWidth, 2), 0.4f);
             float fraction = Math.Clamp((percent.GetValueOrDefault() - step * 20) / 20f, 0, 1);
             if (fraction > 0)
             {
+                float height = 2 * fraction;
                 FillRoundedRectangle(graphics, fill,
-                    new RectangleF(left, 13, 2 * fraction, 3), 0.4f * fraction);
+                    new RectangleF(0, bottom - height, GaugeWidth, height), 0.4f * fraction);
             }
         }
     }
