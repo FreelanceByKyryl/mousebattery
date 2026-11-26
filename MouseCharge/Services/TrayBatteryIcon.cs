@@ -13,16 +13,15 @@ internal static class TrayBatteryIcon
 {
     private const int DesignSize = 16;
     private const int Supersampling = 8;
+    private const int DigitHeight = 12;
 
     private static readonly Palette Light = new(
-        Color.FromArgb(0x14, 0x1b, 0x22), Color.FromArgb(0x4b, 0x5c, 0x6e),
-        Color.FromArgb(0xe1, 0xe7, 0xee), Color.FromArgb(0xf4, 0xf6, 0xf9),
-        Color.FromArgb(0x52, 0x66, 0x78), Color.FromArgb(0x79, 0x90, 0xa5));
+        Color.Black, Color.FromArgb(0xaf, 0xb7, 0xbf),
+        Color.FromArgb(0x45, 0x50, 0x5c), Color.FromArgb(0x69, 0x79, 0x89));
 
     private static readonly Palette Dark = new(
-        Color.FromArgb(0xf3, 0xf6, 0xf9), Color.FromArgb(0xb6, 0xc4, 0xd1),
-        Color.FromArgb(0x34, 0x41, 0x54), Color.FromArgb(0x22, 0x2e, 0x3d),
-        Color.FromArgb(0xb5, 0xc4, 0xd2), Color.FromArgb(0x84, 0x96, 0xa8));
+        Color.White, Color.FromArgb(0x46, 0x53, 0x62),
+        Color.FromArgb(0xcc, 0xd5, 0xdf), Color.FromArgb(0x91, 0xa1, 0xb2));
 
     /// <summary>The caller owns the returned icon. Missing readings are drawn as a dash.</summary>
     public static Icon? Create(int? percent, bool stale)
@@ -30,8 +29,8 @@ internal static class TrayBatteryIcon
         int? level = percent is >= 0 and <= 100 ? percent : null;
         bool highContrast = Forms.SystemInformation.HighContrast;
         var palette = highContrast
-            ? new Palette(SystemColors.WindowText, SystemColors.WindowText, SystemColors.GrayText,
-                SystemColors.Window, SystemColors.GrayText, SystemColors.GrayText)
+            ? new Palette(SystemColors.WindowText, SystemColors.GrayText,
+                SystemColors.WindowText, SystemColors.GrayText)
             : IsLightSystemTheme() ? Light : Dark;
         var size = Forms.SystemInformation.SmallIconSize;
         if (size.Width <= 0 || size.Height <= 0)
@@ -46,7 +45,7 @@ internal static class TrayBatteryIcon
             if (highContrast)
             {
                 using var background = new SolidBrush(SystemColors.Window);
-                FillRoundedRectangle(graphics, background, new RectangleF(0, 0, DesignSize, 9.4f), 0.8f);
+                graphics.FillRectangle(background, 0, 0, DesignSize, DesignSize);
             }
             DrawReading(graphics, level, stale || level is null ? palette.MutedText : palette.Text);
             DrawGauge(graphics, level, stale, highContrast, palette);
@@ -81,59 +80,77 @@ internal static class TrayBatteryIcon
         using var brush = new SolidBrush(ink);
         if (percent is not int value)
         {
-            FillRoundedRectangle(graphics, brush, new RectangleF(5.5f, 4.4f, 5f, 0.8f), 0.4f);
+            FillRoundedRectangle(graphics, brush, new RectangleF(5, 5, 6, 1.5f), 0.5f);
             return;
         }
 
+        string digits = value.ToString(CultureInfo.InvariantCulture);
+        int markWidth = digits.Length == 3 ? 3 : 4;
+        int labelWidth = digits.Sum(digit => DigitWidth(digit, digits.Length) + 1) + markWidth;
+        int left = (DesignSize - labelWidth) / 2;
         using var font = new Font("Segoe UI", 12f, FontStyle.Regular, GraphicsUnit.Pixel);
         using var family = font.FontFamily;
         using var format = StringFormat.GenericTypographic;
-        using var path = new GraphicsPath();
-        path.AddString(value.ToString(CultureInfo.InvariantCulture) + "%", family, (int)font.Style,
-            font.Size, PointF.Empty, format);
+        // Anchor each digit to pixel columns so its stems survive reduction to 16px.
+        using var edge = new Pen(ink, 0.45f) { LineJoin = LineJoin.Round };
+        foreach (char digit in digits)
+        {
+            int width = DigitWidth(digit, digits.Length);
+            using var path = new GraphicsPath();
+            path.AddString(digit.ToString(), family, (int)font.Style, font.Size, PointF.Empty, format);
+            var bounds = path.GetBounds();
+            float sx = (width - edge.Width) / bounds.Width;
+            float sy = (DigitHeight - edge.Width) / bounds.Height;
+            using var fit = new Matrix(sx, 0, 0, sy,
+                left + edge.Width / 2 - bounds.Left * sx, edge.Width / 2 - bounds.Top * sy);
+            path.Transform(fit);
+            graphics.FillPath(brush, path);
+            graphics.DrawPath(edge, path);
+            left += width + 1;
+        }
 
-        // Fit the actual ink bounds, keeping the whole 100% label inside a native 16px icon.
-        var bounds = path.GetBounds();
-        float sy = 8.4f / bounds.Height;
-        float sx = Math.Min(sy, 15.7f / bounds.Width);
-        using var fit = new Matrix(sx, 0, 0, sy,
-            (DesignSize - bounds.Width * sx) / 2 - bounds.Left * sx, 0.5f - bounds.Top * sy);
-        path.Transform(fit);
-        graphics.FillPath(brush, path);
+        // A smaller percent sign leaves the full height and most of the width for the reading.
+        using var slash = new Pen(ink, 1f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+        graphics.DrawLine(slash, left + 0.5f, 7.5f, left + markWidth - 0.5f, 2.5f);
+        graphics.FillEllipse(brush, left, 2, 1.35f, 1.5f);
+        graphics.FillEllipse(brush, left + markWidth - 1.35f, 6.5f, 1.35f, 1.5f);
     }
+
+    private static int DigitWidth(char digit, int count) => count switch
+    {
+        1 => digit == '1' ? 4 : 7,
+        2 => digit == '1' ? 3 : 5,
+        _ => digit == '1' ? 2 : 4
+    };
 
     private static void DrawGauge(Graphics graphics, int? percent, bool stale, bool highContrast, Palette palette)
     {
-        using var outline = new SolidBrush(palette.Outline);
-        using var interior = new SolidBrush(palette.Interior);
         using var track = new SolidBrush(palette.Track);
         Color charge = stale ? palette.MutedCharge : highContrast
             ? SystemColors.Highlight : ChargeColor(percent.GetValueOrDefault());
         using var fill = new SolidBrush(charge);
 
-        FillRoundedRectangle(graphics, outline, new RectangleF(0.55f, 10.1f, 13.55f, 5.5f), 1.6f);
-        FillRoundedRectangle(graphics, interior, new RectangleF(1.38f, 10.93f, 11.89f, 3.84f), 0.77f);
-        FillRoundedRectangle(graphics, outline, new RectangleF(14.35f, 11.7f, 1.3f, 2.4f), 0.5f);
+        graphics.FillRectangle(track, 15, 14, 1, 1);
         for (int step = 0; step < 5; step++)
         {
-            float left = 1.85f + step * 2.23f;
-            FillRoundedRectangle(graphics, track, new RectangleF(left, 11.55f, 1.72f, 2.7f), 0.32f);
+            int left = step * 3;
+            FillRoundedRectangle(graphics, track, new RectangleF(left, 13, 2, 3), 0.4f);
             float fraction = Math.Clamp((percent.GetValueOrDefault() - step * 20) / 20f, 0, 1);
             if (fraction > 0)
             {
                 FillRoundedRectangle(graphics, fill,
-                    new RectangleF(left, 11.55f, 1.72f * fraction, 2.7f), 0.32f * fraction);
+                    new RectangleF(left, 13, 2 * fraction, 3), 0.4f * fraction);
             }
         }
     }
 
     private static Color ChargeColor(int percent) => percent switch
     {
-        >= 90 => Color.FromArgb(0x59, 0xac, 0x42),
-        >= 70 => Color.FromArgb(0x8c, 0xbe, 0x50),
-        >= 50 => Color.FromArgb(0xbd, 0xbe, 0x3d),
-        >= 30 => Color.FromArgb(0xd3, 0x9b, 0x41),
-        _ => Color.FromArgb(0xe2, 0x6c, 0x5e)
+        >= 90 => Color.FromArgb(0x3d, 0xd9, 0x70),
+        >= 70 => Color.FromArgb(0x85, 0xd7, 0x43),
+        >= 50 => Color.FromArgb(0xf0, 0xc5, 0x32),
+        >= 30 => Color.FromArgb(0xff, 0x9c, 0x39),
+        _ => Color.FromArgb(0xfa, 0x63, 0x57)
     };
 
     private static void FillRoundedRectangle(Graphics graphics, Brush brush, RectangleF bounds, float radius)
@@ -162,8 +179,7 @@ internal static class TrayBatteryIcon
         }
     }
 
-    private sealed record Palette(Color Text, Color Outline, Color Track, Color Interior,
-        Color MutedText, Color MutedCharge);
+    private sealed record Palette(Color Text, Color Track, Color MutedText, Color MutedCharge);
 
     [DllImport("user32.dll", ExactSpelling = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
